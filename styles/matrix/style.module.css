@@ -1,0 +1,272 @@
+.matrixPreview {
+  height: 100%;
+  background-color: #00000000;
+  position: relative;
+  overflow: hidden;
+}
+
+.matrixPreview::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(128, 0, 128, 0.2));
+  animation: matrixScan 2s linear infinite;
+}
+
+.matrixPreview::after {
+  content: "01";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #bb00ff;
+  font-family: monospace;
+  font-size: 20px;
+  text-shadow: 0 0 5px #bb00ff;
+}
+
+@keyframes matrixScan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* 黑客帝国主题文字编辑器样式 */
+.matrixTextsEditor {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.matrixTextsEditor h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.textInputGroup {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.textInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.addButton {
+  margin-left: 10px;
+  padding: 8px 15px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.addButton:hover {
+  background-color: #45a049;
+}
+
+.textsList {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: white;
+}
+
+.textItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.textItem:last-child {
+  border-bottom: none;
+}
+
+.removeButton {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.removeButton:hover {
+  background-color: #d32f2f;
+}
+
+.noTexts {
+  color: #888;
+  text-align: center;
+  font-style: italic;
+}
+
+/* 确保根元素和body没有边距 */
+.matrix {
+  background-color: #000;
+  color: #0f0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border: none;
+}
+
+/* 确保容器元素也是全屏的 */
+.matrix::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: -1; /* 改为负值，确保不会覆盖内容 */
+  margin: 0;
+  padding: 0;
+}
+
+.matrixRain {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* 确保在内容下方但可见 */
+  overflow: hidden;
+  perspective: 1000px;
+  pointer-events: none; /* 确保不会阻挡交互 */
+}
+
+/* 添加全局样式覆盖 */
+.matrix :global(html), 
+.matrix :global(body) {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+.matrix :global(body) {
+  background-color: #000;
+}
+
+/* 从Wish.module.css移动的通用样式 */
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 0px;
+  background-color: hsla(0, 3%, 6%, 0.449);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-image: linear-gradient(to bottom right, #f5f5f5, #e0e0e0);
+}
+
+.matrixWord {
+  position: absolute;
+  white-space: nowrap;
+  transform: translateZ(0);
+  transition: all 0.5s ease;
+  animation: matrixFloat cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  z-index: 3; /* 降低层级，从3改为1 */
+  pointer-events: none; /* 防止干扰点击 */
+}
+
+.heart {
+  position: absolute;
+  color: #ff6b9d;
+  font-size: 1.5rem;
+  opacity: 0.8;
+  z-index: 3; /* 确保心形在前面 */
+  animation: heartFloat cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  text-shadow: 0 0 8px #ff6b9d;
+  pointer-events: none; /* 防止干扰点击 */
+}
+
+@keyframes matrixFloat {
+  0% {
+    transform: translateY(100vh) translateZ(0) rotateX(10deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-100vh) translateZ(0) rotateX(10deg);
+    opacity: 0;
+  }
+}
+
+@keyframes heartFloat {
+  0% {
+    transform: translateY(100vh) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(50vh) rotate(10deg) scale(1.2);
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-20vh) rotate(20deg) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.title {
+  color: #bb00ff;
+  text-shadow: 0 0 10px #bb00ff, 0 0 20px #bb00ff, 0 0 30px #bb00ff;
+  font-family: 'Courier New', monospace;
+  font-size: 5rem;
+  font-weight: bold;
+  letter-spacing: 5px;
+  transform: perspective(500px) rotateX(10deg);
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  animation: pulse 2s infinite alternate;
+  z-index: 10;
+  position: relative;
+}
+
+@keyframes pulse {
+  0% {
+    text-shadow: 0 0 10px #bb00ff, 0 0 20px #bb00ff;
+    transform: perspective(500px) rotateX(10deg) scale(1);
+  }
+  100% {
+    text-shadow: 0 0 15px #bb00ff, 0 0 30px #bb00ff, 0 0 50px #bb00ff;
+    transform: perspective(500px) rotateX(10deg) scale(1.05);
+  }
+}

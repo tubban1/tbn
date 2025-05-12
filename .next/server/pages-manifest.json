@@ -2,8 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/w/[uid]": "pages/w/[uid].js",
   "/e/[uid]": "pages/e/[uid].js",
   "/api/pages/[uid]": "pages/api/pages/[uid].js",
-  "/api/page_views": "pages/api/page_views.js",
-  "/w/[uid]": "pages/w/[uid].js"
+  "/api/page_views": "pages/api/page_views.js"
 }

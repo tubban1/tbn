@@ -2,6 +2,54 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import styles from '../../styles/Edit.module.css';
 
+// 定义 PaperLetterEditor 组件（在主组件外部）
+const PaperLetterEditor = ({ formData, handleInputChange }) => {
+  return (
+    <div className={styles.paperLetterEditor}>
+      <h3>信纸内容设置</h3>
+      
+      <div className={styles.formGroup}>
+        <label htmlFor="wishText">署名（谁写的信）</label>
+        <input
+          type="text"
+          id="wishText"
+          name="wishText"
+          value={formData.wishText}
+          onChange={handleInputChange}
+          placeholder="例如：爱你的人"
+          className={styles.input}
+        />
+      </div>
+      
+      <div className={styles.formGroup}>
+        <label htmlFor="name">收信人</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleInputChange}
+          placeholder="例如：亲爱的朋友"
+          className={styles.input}
+        />
+      </div>
+      
+      <div className={styles.formGroup}>
+        <label htmlFor="greeting">信的内容</label>
+        <textarea
+          id="greeting"
+          name="greeting"
+          value={formData.greeting}
+          onChange={handleInputChange}
+          placeholder="写下你想说的话..."
+          className={styles.textarea}
+          rows={5}
+        />
+      </div>
+    </div>
+  );
+};
+
 // 确保组件正确闭合
 export default function EditPage() {
   const router = useRouter();
@@ -366,9 +414,9 @@ export default function EditPage() {
                   <div className={styles.paperLetterPreview}></div>
                 </div>
                 <div className={styles.themeInfo}>
-                  <h4>纸张信笺主题</h4>
-                  <p>温馨、复古、手写风</p>
-                  <small>仿纸张背景，像一封手写信，有手写字体和笔触样式，角落带有贴纸或印章</small>
+                  <h4>信纸主题</h4>
+                  <p>温馨、怀旧、手写感</p>
+                  <small>仿真信纸背景，带有打字机效果和笔迹动画</small>
                 </div>
               </div>
               
@@ -488,11 +536,11 @@ export default function EditPage() {
               
               {/* 添加黑客帝国主题 */}
               <div 
-                className={`${styles.themeOption} ${formData.theme === 'matrixTheme' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'matrixTheme'})}
+                className={`${styles.themeOption} ${formData.theme === 'matrix' ? styles.selectedTheme : ''}`}
+                onClick={() => setFormData({...formData, theme: 'matrix'})}
               >
                 <div className={styles.themePreview}>
-                  <div className={styles.matrixThemePreview}></div>
+                  <div className={styles.matrixPreview}></div>
                 </div>
                 <div className={styles.themeInfo}>
                   <h4>黑客帝国主题</h4>
@@ -504,7 +552,10 @@ export default function EditPage() {
           </div>
           
           {/* 当选择黑客帝国主题时显示文字编辑器 */}
-          {formData.theme === 'matrixTheme' && <MatrixTextsEditor />}
+          {formData.theme === 'matrix' && <MatrixTextsEditor />}
+          
+          {/* 当选择信纸主题时显示信纸编辑器 */}
+          {formData.theme === 'paperLetter' && <PaperLetterEditor formData={formData} handleInputChange={handleInputChange} />}
           
           <button type="submit" className={styles.submitButton} disabled={submitting}>
             {submitting ? '保存中...' : '保存更改'}

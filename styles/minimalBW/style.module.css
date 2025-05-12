@@ -1,0 +1,26 @@
+.minimalBWPreview {
+  height: 100%;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.minimalBWPreview::before {
+  content: "";
+  width: 80%;
+  height: 10px;
+  background-color: #212121;
+  margin-bottom: 10px;
+}
+
+.minimalBWPreview::after {
+  content: "";
+  width: 60%;
+  height: 5px;
+  background-color: #757575;
+  margin-top: 5px;
+}
+
+/* 极简黑白主题的其他样式 */

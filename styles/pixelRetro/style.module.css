@@ -1,0 +1,11 @@
+.pixelRetroPreview {
+  height: 100%;
+  background-color: #2d2d2d;
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 10px 10px;
+  position: relative;
+}
+
+/* 像素复古主题的其他样式 */

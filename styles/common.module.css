@@ -1,0 +1,139 @@
+/* 通用容器样式 */
+.container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0px;
+}
+
+/* 添加缺少的通用样式 */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.loadingSpinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #e74c3c;
+  font-size: 18px;
+  text-align: center;
+}
+
+.notAssigned {
+  color: #e67e22;
+  font-size: 20px;
+  text-align: center;
+  padding: 30px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.signature {
+  text-align: right;
+  font-style: italic;
+  margin-top: 20px;
+}
+
+.commentsList {
+  margin-top: 20px;
+}
+
+.commentItem {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 15px;
+}
+
+.commentAuthor {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.commentDate {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  margin-bottom: 8px;
+}
+
+.commentContent {
+  line-height: 1.5;
+}
+
+/* 通用卡片样式 */
+.card {
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+
+/* 通用标题样式 */
+.title {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* 通用按钮样式 */
+.button {
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+/* 通用输入框样式 */
+.input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+/* 通用文本区域样式 */
+.textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  font-size: 16px;
+  min-height: 100px;
+}
+
+/* 通用部分标题样式 */
+.sectionTitle {
+  margin: 20px 0 10px;
+  font-size: 1.5rem;
+}
+
+/* 通用内容区域样式 */
+.content {
+  margin-bottom: 20px;
+  line-height: 1.6;
+}

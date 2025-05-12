@@ -1,0 +1,32 @@
+.fairyForestPreview {
+  height: 100%;
+  background-color: #e8f5e9;
+  background-image: linear-gradient(120deg, rgba(76, 175, 80, 0.2) 0%, rgba(139, 195, 74, 0.2) 100%);
+  position: relative;
+}
+
+.fairyForestPreview::before {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 30%;
+  width: 20px;
+  height: 20px;
+  background-color: #8bc34a;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.fairyForestPreview::after {
+  content: "";
+  position: absolute;
+  top: 60%;
+  left: 60%;
+  width: 15px;
+  height: 15px;
+  background-color: #aed581;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+/* 童话森林主题的其他样式 */
