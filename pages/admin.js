@@ -81,6 +81,23 @@ export default function Admin() {
     }
   };
 
+  // 处理点击页面信息对话框
+  const handleCopyPageInfo = (e, page) => {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(e.currentTarget);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // 尝试复制到剪贴板
+    try {
+      document.execCommand('copy');
+      setMessage('页面信息已复制到剪贴板');
+    } catch (err) {
+      setMessage('请手动复制页面信息');
+    }
+  };
+
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>页面管理</h1>
@@ -122,6 +139,7 @@ export default function Admin() {
               <th>创建时间</th>
               <th>已分配</th>
               <th>已售出</th>
+              <th>页面信息</th>
             </tr>
           </thead>
           <tbody>
@@ -152,11 +170,22 @@ export default function Admin() {
                       <span className={styles.slider}></span>
                     </label>
                   </td>
+                  <td>
+                    <div 
+                      className={styles.pageInfoBox}
+                      onClick={(e) => handleCopyPageInfo(e, page)}
+                      title="点击复制"
+                    >
+                      展示页面: tbn.cc/w/{page.uid}<br/>
+                      编辑页面: tbn.cc/e/{page.uid}<br/>
+                      密码: {page.password}
+                    </div>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" className={styles.noData}>暂无数据</td>
+                <td colSpan="7" className={styles.noData}>暂无数据</td>
               </tr>
             )}
           </tbody>

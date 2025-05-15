@@ -1,20 +1,12 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../../lib/db';
 
 export default async function handler(req, res) {
   const { uid } = req.query;
   
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
     // GET 请求 - 获取页面
     if (req.method === 'GET') {
-      const [rows] = await connection.execute(
+      const rows = await query(
         'SELECT * FROM pages WHERE uid = ?',
         [uid]
       );
@@ -30,7 +22,7 @@ export default async function handler(req, res) {
       const { title, content, password } = req.body;
       
       // 验证密码
-      const [rows] = await connection.execute(
+      const rows = await query(
         'SELECT password FROM pages WHERE uid = ?',
         [uid]
       );
@@ -44,7 +36,7 @@ export default async function handler(req, res) {
       }
       
       // 更新页面
-      await connection.execute(
+      await query(
         'UPDATE pages SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE uid = ?',
         [title, content, uid]
       );
@@ -78,10 +70,10 @@ export default async function handler(req, res) {
       updateFields.push('updated_at = CURRENT_TIMESTAMP');
       
       // 执行更新
-      const query = `UPDATE pages SET ${updateFields.join(', ')} WHERE uid = ?`;
+      const queryStr = `UPDATE pages SET ${updateFields.join(', ')} WHERE uid = ?`;
       updateValues.push(uid);
       
-      const [result] = await connection.execute(query, updateValues);
+      const result = await query(queryStr, updateValues);
       
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: '页面不存在' });
@@ -95,7 +87,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('操作失败:', error);
     res.status(500).json({ error: '服务器错误' });
-  } finally {
-    await connection.end();
   }
 }

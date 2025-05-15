@@ -1,8 +1,15 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import styles from '../../styles/matrix/style.module.css';
-import { createMatrixRainEffect, createDynamicBackground } from '../../styles/matrix/script';
+import { themes } from '../../styles/index';
+import commonStyles from '../../styles/common.module.css';
+
+// 动态导入主题脚本
+const themeScripts = {
+  matrix: () => import('../../styles/matrix/script'),
+  paperLetter: () => import('../../styles/paperLetter/script')
+  // 可以根据需要添加更多主题脚本
+};
 
 export default function WishPage() {
   const router = useRouter();
@@ -10,13 +17,17 @@ export default function WishPage() {
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [themeStyle, setThemeStyle] = useState(null);
+  const [themeScript, setThemeScript] = useState(null);
   
   // 将所有 Hooks 声明移到组件顶层
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [likeCount, setLikeCount] = useState(0);
-
+  const [showComments, setShowComments] = useState(false);
+  
+  // 获取页面数据
   useEffect(() => {
     if (!uid) return;
 
@@ -39,6 +50,56 @@ export default function WishPage() {
 
     fetchPage();
   }, [uid]);
+
+  // 根据主题加载对应的样式和脚本
+  useEffect(() => {
+    if (!page) return;
+
+    // 解析页面内容
+    const content = typeof page.content === 'string' ? 
+      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
+      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
+    
+    // 获取主题名称
+    const themeName = content.theme || 'default';
+    
+    // 设置主题样式
+    setThemeStyle(themes[themeName]);
+    
+    // 如果有对应的主题脚本，加载它
+    if (themeScripts[themeName]) {
+      themeScripts[themeName]().then(module => {
+        setThemeScript(module);
+      }).catch(err => {
+        console.error(`加载主题脚本失败: ${themeName}`, err);
+      });
+    } else {
+      setThemeScript(null);
+    }
+  }, [page]);
+
+  // 应用主题特效
+  useEffect(() => {
+    if (!themeStyle || !themeScript || !page) return;
+    
+    // 解析页面内容
+    const content = typeof page.content === 'string' ? 
+      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
+      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
+    
+    let cleanup = () => {};
+    
+    // 根据主题名称应用不同的特效
+    if (content.theme === 'matrix' && themeScript.createMatrixRainEffect) {
+      // 只应用文字雨效果，移除动态背景效果
+      cleanup = themeScript.createMatrixRainEffect(themeStyle, content);
+    } else if (content.theme === 'paperLetter' && themeScript.createPaperEffects) {
+      cleanup = themeScript.createPaperEffects(themeStyle, content);
+    }
+    // 可以添加更多主题的特效处理
+    
+    return cleanup;
+  }, [themeStyle, themeScript, page]);
 
   // 获取评论
   useEffect(() => {
@@ -72,35 +133,6 @@ export default function WishPage() {
       body: JSON.stringify({ page_uid: uid }),
     }).catch(err => console.error('记录访问失败:', err));
   }, [uid]);
-
-  // 创建动态背景
-  useEffect(() => {
-    if (!uid) return;
-    
-    // 调用拆分出去的函数
-    const cleanupBackground = createDynamicBackground(styles);
-    
-    // 清理函数
-    return cleanupBackground;
-  }, [uid, styles.container, styles.particle]);
-
-  // 创建黑客帝国文字雨效果
-  useEffect(() => {
-    if (!uid || !page) return;
-    
-    // 解析页面内容
-    const content = typeof page.content === 'string' ? 
-      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
-      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
-    
-    if (!content.theme || content.theme !== 'matrix') return;
-    
-    // 调用拆分出去的函数
-    const cleanupMatrixRain = createMatrixRainEffect(styles, content);
-    
-    // 返回清理函数
-    return cleanupMatrixRain;
-  }, [uid, page, styles]);
 
   // 处理点赞
   const handleLike = () => {
@@ -140,27 +172,32 @@ export default function WishPage() {
     }
   };
 
+  // 切换评论面板显示状态
+  const toggleComments = () => {
+    setShowComments(!showComments);
+  };
+
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loadingContainer}>
-          <div className={styles.loadingSpinner}></div>
-          <div className={styles.loading}>加载中...</div>
+      <div className={commonStyles.container}>
+        <div className={commonStyles.loadingContainer}>
+          <div className={commonStyles.loadingSpinner}></div>
+          <div className={commonStyles.loading}>加载中...</div>
         </div>
       </div>
     );
   }
 
   if (error) {
-    return <div className={styles.container}><div className={styles.error}>{error}</div></div>;
+    return <div className={commonStyles.container}><div className={commonStyles.error}>{error}</div></div>;
   }
 
   if (!page) {
-    return <div className={styles.container}><div className={styles.error}>页面不存在</div></div>;
+    return <div className={commonStyles.container}><div className={commonStyles.error}>页面不存在</div></div>;
   }
 
   if (!page.is_assigned) {
-    return <div className={styles.container}><div className={styles.notAssigned}>页面还未分配</div></div>;
+    return <div className={commonStyles.container}><div className={commonStyles.notAssigned}>页面还未分配</div></div>;
   }
 
   // 解析页面内容
@@ -173,17 +210,76 @@ export default function WishPage() {
     (content.interaction.type || '点击下方按钮，送上你的祝福') : 
     (content.interaction || '点击下方按钮，送上你的祝福');
 
-  // 确定主题类名
-  const themeClass = content.theme ? styles[content.theme] : '';
+  // 使用动态加载的主题样式
+  const styles = themeStyle || themes.default;
 
   return (
-    <div className={`${styles.container} ${themeClass}`}>
+    <div className={`${commonStyles.container} ${styles.container}`}>
       <Head>
         <title>{page.title || '祝福页面'}</title>
         <meta name="description" content={`${page.title || '祝福页面'} - 个性化祝福`} />
       </Head>
       
-      {/* 标题已被删除 */}
+      {/* 评论气泡按钮 */}
+      <div 
+        className={commonStyles.commentBubble} 
+        onClick={toggleComments}
+        title="查看留言"
+      >
+        <div className={commonStyles.bubbleInner}>
+          <span className={commonStyles.commentIcon}>💬</span>
+          <span className={commonStyles.commentCount}>{comments.length}</span>
+        </div>
+      </div>
+      
+      {/* 评论弹出面板 */}
+      {showComments && (
+        <div className={commonStyles.commentPanel}>
+          <div className={commonStyles.commentHeader}>
+            <h3>留言板</h3>
+            <button className={commonStyles.closeButton} onClick={toggleComments}>×</button>
+          </div>
+          
+          <form onSubmit={handleSubmitComment} className={commonStyles.commentForm}>
+            <input
+              type="text"
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
+              placeholder="您的名字"
+              className={commonStyles.commentAuthorInput}
+            />
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="写下您的祝福..."
+              className={commonStyles.commentInput}
+            />
+            <button type="submit" className={commonStyles.commentButton}>
+              发送祝福
+            </button>
+          </form>
+          
+          <div className={commonStyles.commentsList}>
+            {comments.length > 0 ? (
+              comments.map((comment, index) => (
+                <div key={index} className={commonStyles.commentItem}>
+                  <div className={commonStyles.commentAuthor}>
+                    {comment.author || '匿名'}
+                  </div>
+                  <div className={commonStyles.commentDate}>
+                    {new Date(comment.created_at).toLocaleString()}
+                  </div>
+                  <div className={commonStyles.commentContent}>
+                    {comment.content}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className={commonStyles.noComments}>暂无留言</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

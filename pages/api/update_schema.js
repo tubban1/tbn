@@ -1,32 +1,22 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../lib/db';
 
 export default async function handler(req, res) {
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
-    // 1. 先更新现有记录，确保 content 列有有效的 JSON
-    await connection.execute(`
-      UPDATE pages 
-      SET content = '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default"}' 
-      WHERE content IS NULL OR content = ''
+    // 检查 comments 表是否存在 author 字段，如果不存在则添加
+    const columns = await query(`
+      SHOW COLUMNS FROM comments LIKE 'author'
     `);
     
-    // 2. 然后修改列类型为 JSON
-    await connection.execute(`
-      ALTER TABLE pages 
-      MODIFY content JSON
-    `);
+    if (columns.length === 0) {
+      // 添加 author 字段
+      await query(`
+        ALTER TABLE comments 
+        ADD COLUMN author VARCHAR(255) DEFAULT '匿名' AFTER page_uid
+      `);
+    }
     
-    res.status(200).json({ message: '数据库结构更新成功' });
+    res.status(200).json({ message: 'comments表结构更新成功' });
   } catch (error) {
     res.status(500).json({ error: error.message });
-  } finally {
-    await connection.end();
   }
 }

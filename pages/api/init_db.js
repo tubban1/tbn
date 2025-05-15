@@ -1,17 +1,9 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../lib/db';
 
 export default async function handler(req, res) {
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
     // 1. pages 主表
-    await connection.execute(`
+    await query(`
       CREATE TABLE IF NOT EXISTS pages (
         uid VARCHAR(16) PRIMARY KEY,
         password VARCHAR(64) NOT NULL,
@@ -27,7 +19,7 @@ export default async function handler(req, res) {
     `);
 
     // 2. styles 样式表
-    await connection.execute(`
+    await query(`
       CREATE TABLE IF NOT EXISTS styles (
         id INT PRIMARY KEY AUTO_INCREMENT,
         name VARCHAR(50),
@@ -36,7 +28,7 @@ export default async function handler(req, res) {
     `);
 
     // 3. scripts 脚本表
-    await connection.execute(`
+    await query(`
       CREATE TABLE IF NOT EXISTS scripts (
         id INT PRIMARY KEY AUTO_INCREMENT,
         name VARCHAR(50),
@@ -45,7 +37,7 @@ export default async function handler(req, res) {
     `);
 
     // 4. comments 留言表
-    await connection.execute(`
+    await query(`
       CREATE TABLE IF NOT EXISTS comments (
         id INT PRIMARY KEY AUTO_INCREMENT,
         page_uid VARCHAR(16),
@@ -56,7 +48,7 @@ export default async function handler(req, res) {
     `);
 
     // 5. page_views 页面访问记录表
-    await connection.execute(`
+    await query(`
       CREATE TABLE IF NOT EXISTS page_views (
         id INT PRIMARY KEY AUTO_INCREMENT,
         page_uid VARCHAR(16),
@@ -70,7 +62,5 @@ export default async function handler(req, res) {
     res.status(200).json({ message: '所有表已成功创建' });
   } catch (error) {
     res.status(500).json({ error: error.message });
-  } finally {
-    await connection.end();
   }
 }

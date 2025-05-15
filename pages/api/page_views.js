@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -11,14 +11,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '缺少页面ID' });
   }
 
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
     // 获取客户端IP和UA
     const ip_address = req.headers['x-forwarded-for'] || 
@@ -26,7 +18,7 @@ export default async function handler(req, res) {
     const user_agent = req.headers['user-agent'];
     
     // 记录访问
-    await connection.execute(
+    await query(
       'INSERT INTO page_views (page_uid, ip_address, user_agent) VALUES (?, ?, ?)',
       [page_uid, ip_address, user_agent]
     );
@@ -35,7 +27,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('记录访问失败:', error);
     res.status(500).json({ error: '记录访问失败' });
-  } finally {
-    await connection.end();
   }
 }

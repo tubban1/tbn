@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../../lib/db';
 import { nanoid } from 'nanoid';
 
 // 生成4位随机密码（数字和字母组合）
@@ -34,14 +34,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '页面数量必须在1-100之间' });
   }
 
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
     let created = 0;
     
@@ -51,7 +43,7 @@ export default async function handler(req, res) {
       const password = generatePassword();
       const title = generateTitle();
       
-      await connection.execute(
+      await query(
         `INSERT INTO pages (uid, password, title) VALUES (?, ?, ?)`,
         [uid, password, title]
       );
@@ -63,7 +55,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('创建页面失败:', error);
     res.status(500).json({ error: '创建页面失败' });
-  } finally {
-    await connection.end();
   }
 }

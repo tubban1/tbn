@@ -1,19 +1,11 @@
-import mysql from 'mysql2/promise';
+import { query } from '../../lib/db';
 import fs from 'fs';
 import path from 'path';
 
 export default async function handler(req, res) {
-  const connection = await mysql.createConnection({
-    host: 'caboose.proxy.rlwy.net',
-    user: 'root',
-    password: 'mytRopuhMJFxLyFcDYDoTIojZeyqzYfj',
-    database: 'railway',
-    port: 49094,
-  });
-
   try {
     // 获取所有表名
-    const [tables] = await connection.execute(`
+    const tables = await query(`
       SHOW TABLES
     `);
     
@@ -26,7 +18,7 @@ export default async function handler(req, res) {
       const tableName = tableObj[Object.keys(tableObj)[0]];
       
       // 获取表结构
-      const [columns] = await connection.execute(`
+      const columns = await query(`
         DESCRIBE ${tableName}
       `);
       
@@ -112,7 +104,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('获取数据库结构失败:', error);
     res.status(500).json({ error: error.message });
-  } finally {
-    await connection.end();
   }
 }

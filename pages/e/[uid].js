@@ -2,55 +2,6 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import styles from '../../styles/Edit.module.css';
 
-// 定义 PaperLetterEditor 组件（在主组件外部）
-const PaperLetterEditor = ({ formData, handleInputChange }) => {
-  return (
-    <div className={styles.paperLetterEditor}>
-      <h3>信纸内容设置</h3>
-      
-      <div className={styles.formGroup}>
-        <label htmlFor="wishText">署名（谁写的信）</label>
-        <input
-          type="text"
-          id="wishText"
-          name="wishText"
-          value={formData.wishText}
-          onChange={handleInputChange}
-          placeholder="例如：爱你的人"
-          className={styles.input}
-        />
-      </div>
-      
-      <div className={styles.formGroup}>
-        <label htmlFor="name">收信人</label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value={formData.name}
-          onChange={handleInputChange}
-          placeholder="例如：亲爱的朋友"
-          className={styles.input}
-        />
-      </div>
-      
-      <div className={styles.formGroup}>
-        <label htmlFor="greeting">信的内容</label>
-        <textarea
-          id="greeting"
-          name="greeting"
-          value={formData.greeting}
-          onChange={handleInputChange}
-          placeholder="写下你想说的话..."
-          className={styles.textarea}
-          rows={5}
-        />
-      </div>
-    </div>
-  );
-};
-
-// 确保组件正确闭合
 export default function EditPage() {
   const router = useRouter();
   const { uid } = router.query;
@@ -62,15 +13,11 @@ export default function EditPage() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   
-  // 在 useState 中添加 matrixTexts 字段
+  // 简化表单数据，只保留标题和主题相关字段
   const [formData, setFormData] = useState({
     title: '',
-    wishText: '',
-    name: '',
-    greeting: '',
-    interactionType: 'like',
-    theme: 'default', // 默认主题
-    matrixTexts: [] // 新增字段用于存储黑客帝国主题文字
+    theme: 'default',
+    matrixTexts: []
   });
 
   useEffect(() => {
@@ -97,38 +44,32 @@ export default function EditPage() {
           } catch (e) {
             // 如果解析失败，创建默认结构
             content = {
-              wishText: '',
-              name: '',
-              greeting: content || '',
-              interaction: {
-                type: 'like',
-                config: {}
-              },
-              comments: []
+              theme: 'default'
             };
           }
         } else if (!content) {
           // 如果content为空，创建默认结构
           content = {
-            wishText: '',
-            name: '',
-            greeting: '',
-            interaction: {
-              type: 'like',
-              config: {}
-            },
-            comments: []
+            theme: 'default'
           };
         }
         
         setFormData({
           title: data.title || '',
-          wishText: content.wishText || '',
-          name: content.name || '',
-          greeting: content.greeting || '',
-          interactionType: content.interaction?.type || 'like',
           theme: content.theme || 'default',
-          matrixTexts: Array.isArray(content.matrixTexts) ? content.matrixTexts : [] // 解析 matrixTexts 字段
+          // 加载所有主题的文字设置
+          matrixTexts: Array.isArray(content.matrixTexts) ? content.matrixTexts : [],
+          paperLetterTexts: Array.isArray(content.paperLetterTexts) ? content.paperLetterTexts : [],
+          dreamySkyTexts: Array.isArray(content.dreamySkyTexts) ? content.dreamySkyTexts : [],
+          minimalBWTexts: Array.isArray(content.minimalBWTexts) ? content.minimalBWTexts : [],
+          freshGreenTexts: Array.isArray(content.freshGreenTexts) ? content.freshGreenTexts : [],
+          pixelRetroTexts: Array.isArray(content.pixelRetroTexts) ? content.pixelRetroTexts : [],
+          goldenCelebrationTexts: Array.isArray(content.goldenCelebrationTexts) ? content.goldenCelebrationTexts : [],
+          nightNeonTexts: Array.isArray(content.nightNeonTexts) ? content.nightNeonTexts : [],
+          fairyForestTexts: Array.isArray(content.fairyForestTexts) ? content.fairyForestTexts : [],
+          travelPostcardTexts: Array.isArray(content.travelPostcardTexts) ? content.travelPostcardTexts : [],
+          futuristicTechTexts: Array.isArray(content.futuristicTechTexts) ? content.futuristicTechTexts : [],
+          defaultTexts: Array.isArray(content.defaultTexts) ? content.defaultTexts : []
         });
       } catch (err) {
         setError(err.message);
@@ -221,25 +162,145 @@ export default function EditPage() {
     );
   };
 
+  // 添加信纸主题的文字编辑器
+  const PaperLetterEditor = () => {
+    const [letterText, setLetterText] = useState(
+      Array.isArray(formData.paperLetterTexts) && formData.paperLetterTexts.length > 0 
+        ? formData.paperLetterTexts.join('\n') 
+        : ''
+    );
+    
+    const handleTextChange = (e) => {
+      setLetterText(e.target.value);
+      // 直接更新formData，将整段文字作为单个元素存储
+      setFormData(prev => ({
+        ...prev,
+        paperLetterTexts: [e.target.value]
+      }));
+    };
+    
+    return (
+      <div className={styles.paperLetterEditor}>
+        <h3>信纸主题文字</h3>
+        <p>请输入显示在信纸主题中的文字内容</p>
+        
+        <div className={styles.textareaGroup}>
+          <textarea
+            value={letterText}
+            onChange={handleTextChange}
+            placeholder="在此输入信纸内容..."
+            className={styles.letterTextarea}
+            rows={8}
+          />
+        </div>
+        
+        {!letterText && (
+          <p className={styles.noTexts}>暂无自定义文字，将使用默认文字</p>
+        )}
+      </div>
+    );
+  };
+
+  // 通用主题文字编辑器
+  const ThemeTextEditor = () => {
+    const [newText, setNewText] = useState('');
+    const themeKey = `${formData.theme}Texts`;
+    
+    const addText = () => {
+      if (!newText.trim()) return;
+      setFormData(prev => ({
+        ...prev,
+        [themeKey]: [...(prev[themeKey] || []), newText.trim()]
+      }));
+      setNewText('');
+    };
+    
+    const removeText = (index) => {
+      setFormData(prev => ({
+        ...prev,
+        [themeKey]: (prev[themeKey] || []).filter((_, i) => i !== index)
+      }));
+    };
+    
+    // 获取当前主题的显示名称
+    const getThemeName = () => {
+      const themeMap = {
+        'default': '默认主题',
+        'dreamySky': '梦幻星空主题',
+        'paperLetter': '信纸主题',
+        'minimalBW': '极简黑白主题',
+        'freshGreen': '小清新绿色主题',
+        'pixelRetro': '复古像素风主题',
+        'goldenCelebration': '金色庆典主题',
+        'nightNeon': '夜间霓虹主题',
+        'fairyForest': '童话森林主题',
+        'travelPostcard': '旅行明信片主题',
+        'futuristicTech': '未来科技主题',
+        'matrix': '黑客帝国主题'
+      };
+      return themeMap[formData.theme] || formData.theme;
+    };
+    
+    return (
+      <div className={styles.themeTextEditor}>
+        <h3>{getThemeName()}文字</h3>
+        <p>添加显示在{getThemeName()}中的文字（每行一个）</p>
+        
+        <div className={styles.textInputGroup}>
+          <input
+            type="text"
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            placeholder="输入文字..."
+            className={styles.textInput}
+          />
+          <button 
+            type="button" 
+            onClick={addText}
+            className={styles.addButton}
+          >
+            添加
+          </button>
+        </div>
+        
+        <div className={styles.textsList}>
+          {(formData[themeKey] || []).map((text, index) => (
+            <div key={index} className={styles.textItem}>
+              <span>{text}</span>
+              <button 
+                type="button" 
+                onClick={() => removeText(index)}
+                className={styles.removeButton}
+              >
+                删除
+              </button>
+            </div>
+          ))}
+          {(!formData[themeKey] || formData[themeKey].length === 0) && (
+            <p className={styles.noTexts}>暂无自定义文字，将使用默认文字</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
     setSubmitting(true);
     
     try {
-      // 构建新的content结构
-      // 在保存时，确保将主题信息和matrixTexts包含在 content 中
+      // 构建新的content结构，保留所有主题相关信息
       const content = {
-        wishText: formData.wishText,
-        name: formData.name,
-        greeting: formData.greeting,
-        interaction: {
-          type: formData.interactionType,
-          config: {}
-        },
-        theme: formData.theme, // 保存主题选择
-        matrixTexts: formData.matrixTexts // 保存黑客帝国主题文字
+        theme: formData.theme
       };
+      
+      // 添加各个主题的文字设置
+      Object.keys(formData).forEach(key => {
+        if (key.endsWith('Texts') && Array.isArray(formData[key])) {
+          content[key] = formData[key];
+        }
+      });
       
       const res = await fetch(`/api/pages/${uid}`, {
         method: 'PUT',
@@ -324,58 +385,6 @@ export default function EditPage() {
           </div>
           
           <div className={styles.formGroup}>
-            <label htmlFor="wishText">祝福语前缀（如"🌙 晚安，"）</label>
-            <input
-              type="text"
-              id="wishText"
-              name="wishText"
-              value={formData.wishText}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="例如：🌙 晚安，"
-            />
-          </div>
-          
-          <div className={styles.formGroup}>
-            <label htmlFor="name">收件人名字</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className={styles.input}
-              placeholder="例如：小绿"
-            />
-          </div>
-          
-          <div className={styles.formGroup}>
-            <label htmlFor="greeting">祝福语内容</label>
-            <textarea
-              id="greeting"
-              name="greeting"
-              value={formData.greeting}
-              onChange={handleInputChange}
-              className={styles.textarea}
-              rows="5"
-              placeholder="例如：祝你今晚好眠"
-            />
-          </div>
-          
-          <div className={styles.formGroup}>
-            <label htmlFor="interactionType">互动类型</label>
-            <select
-              id="interactionType"
-              name="interactionType"
-              value={formData.interactionType}
-              onChange={handleInputChange}
-              className={styles.input}
-            >
-              <option value="like">点赞</option>
-            </select>
-          </div>
-          
-          <div className={styles.formGroup}>
             <label htmlFor="theme">选择页面主题</label>
             <div className={styles.themeSelector}>
               <div 
@@ -405,7 +414,6 @@ export default function EditPage() {
                 </div>
               </div>
               
-              {/* 添加纸张信笺主题 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'paperLetter' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'paperLetter'})}
@@ -420,7 +428,6 @@ export default function EditPage() {
                 </div>
               </div>
               
-              {/* 添加极简黑白主题 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'minimalBW' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'minimalBW'})}
@@ -463,7 +470,6 @@ export default function EditPage() {
                 </div>
               </div>
               
-              {/* 其他主题选项 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'goldenCelebration' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'goldenCelebration'})}
@@ -534,7 +540,6 @@ export default function EditPage() {
                 </div>
               </div>
               
-              {/* 添加黑客帝国主题 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'matrix' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'matrix'})}
@@ -551,11 +556,10 @@ export default function EditPage() {
             </div>
           </div>
           
-          {/* 当选择黑客帝国主题时显示文字编辑器 */}
+          {/* 根据当前选择的主题显示相应的文字编辑器 */}
           {formData.theme === 'matrix' && <MatrixTextsEditor />}
-          
-          {/* 当选择信纸主题时显示信纸编辑器 */}
-          {formData.theme === 'paperLetter' && <PaperLetterEditor formData={formData} handleInputChange={handleInputChange} />}
+          {formData.theme === 'paperLetter' && <PaperLetterEditor />}
+          {formData.theme !== 'matrix' && formData.theme !== 'paperLetter' && <ThemeTextEditor />}
           
           <button type="submit" className={styles.submitButton} disabled={submitting}>
             {submitting ? '保存中...' : '保存更改'}
@@ -568,18 +572,7 @@ export default function EditPage() {
           <h2>预览</h2>
           <div className={styles.preview}>
             <h1>{formData.title}</h1>
-            <div>
-              <h3>祝福语</h3>
-              <div style={{whiteSpace: 'pre-wrap'}}>{formData.wishText || '暂无内容'}</div>
-            </div>
-            <div>
-              <h3>互动区</h3>
-              <div>{formData.interactionType === 'like' ? '点赞功能' : '其他互动'}</div>
-            </div>
-            <div>
-              <h3>留言区</h3>
-              <div>用户可以在这里留言</div>
-            </div>
+            <p>主题: {formData.theme}</p>
           </div>
         </div>
       </div>
