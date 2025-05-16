@@ -14,10 +14,17 @@ export default function EditPage() {
   const [submitting, setSubmitting] = useState(false);
   
   // 简化表单数据，只保留标题和主题相关字段
+  // 修改初始formData
   const [formData, setFormData] = useState({
     title: '',
+    wishText: '',
+    name: '',
+    greeting: '',
+    interaction: '',
     theme: 'default',
-    matrixTexts: []
+    matrixTexts: [],
+    dreamySkyTexts: [], // 添加dreamySkyTexts字段
+    paperLetterText: ''
   });
 
   useEffect(() => {

@@ -2,7 +2,9 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/e/[uid]": "pages/e/[uid].js",
+  "/api/pages/[uid]": "pages/api/pages/[uid].js",
   "/w/[uid]": "pages/w/[uid].js",
-  "/api/pages/[uid]": "pages/api/pages/[uid].js"
+  "/e/[uid]": "pages/e/[uid].js",
+  "/api/pages": "pages/api/pages.js",
+  "/admin": "pages/admin.js"
 }

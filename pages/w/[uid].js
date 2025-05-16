@@ -7,7 +7,8 @@ import commonStyles from '../../styles/common.module.css';
 // 动态导入主题脚本
 const themeScripts = {
   matrix: () => import('../../styles/matrix/script'),
-  paperLetter: () => import('../../styles/paperLetter/script')
+  paperLetter: () => import('../../styles/paperLetter/script'),
+  dreamySky: () => import('../../styles/dreamySky/script')  // 添加梦幻星空主题脚本
   // 可以根据需要添加更多主题脚本
 };
 
@@ -61,7 +62,7 @@ export default function WishPage() {
       (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
     
     // 获取主题名称
-    const themeName = content.theme || 'default';
+    const themeName = content.theme || '';
     
     // 设置主题样式
     setThemeStyle(themes[themeName]);
@@ -95,6 +96,9 @@ export default function WishPage() {
       cleanup = themeScript.createMatrixRainEffect(themeStyle, content);
     } else if (content.theme === 'paperLetter' && themeScript.createPaperEffects) {
       cleanup = themeScript.createPaperEffects(themeStyle, content);
+    } else if (content.theme === 'dreamySky' && themeScript.createDreamySkyEffect) {
+      // 添加梦幻星空主题特效
+      cleanup = themeScript.createDreamySkyEffect(themeStyle, content);
     }
     // 可以添加更多主题的特效处理
     
@@ -200,7 +204,7 @@ export default function WishPage() {
     return <div className={commonStyles.container}><div className={commonStyles.notAssigned}>页面还未分配</div></div>;
   }
 
-  // 解析页面内容
+  /*/ 解析页面内容
   const content = typeof page.content === 'string' ? 
     JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
     (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
@@ -209,6 +213,7 @@ export default function WishPage() {
   const interactionText = typeof content.interaction === 'object' ? 
     (content.interaction.type || '点击下方按钮，送上你的祝福') : 
     (content.interaction || '点击下方按钮，送上你的祝福');
+*/
 
   // 使用动态加载的主题样式
   const styles = themeStyle || themes.default;
