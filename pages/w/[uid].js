@@ -58,8 +58,8 @@ export default function WishPage() {
 
     // 解析页面内容
     const content = typeof page.content === 'string' ? 
-      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
-      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
+      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"matrix","matrixTexts":[]}') : 
+      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"matrix","matrixTexts":[]});
     
     // 获取主题名称
     const themeName = content.theme || '';
@@ -72,7 +72,7 @@ export default function WishPage() {
       themeScripts[themeName]().then(module => {
         setThemeScript(module);
       }).catch(err => {
-        console.error(`加载主题脚本失败: ${themeName}`, err);
+        // 删除console.error
       });
     } else {
       setThemeScript(null);
@@ -85,8 +85,8 @@ export default function WishPage() {
     
     // 解析页面内容
     const content = typeof page.content === 'string' ? 
-      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]}') : 
-      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"default","matrixTexts":[]});
+      JSON.parse(page.content || '{"wishText":"","name":"","greeting":"","interaction":"","theme":"matrix","matrixTexts":[]}') : 
+      (page.content || {"wishText":"","name":"","greeting":"","interaction":"","theme":"matrix","matrixTexts":[]});
     
     let cleanup = () => {};
     
@@ -118,7 +118,7 @@ export default function WishPage() {
           setComments(data);
         }
       } catch (err) {
-        console.error('获取评论失败:', err);
+        // 删除console.error
       }
     }
     
@@ -135,7 +135,9 @@ export default function WishPage() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ page_uid: uid }),
-    }).catch(err => console.error('记录访问失败:', err));
+    }).catch(err => {
+      // 删除console.error
+    });
   }, [uid]);
 
   // 处理点赞
@@ -172,7 +174,7 @@ export default function WishPage() {
         setAuthorName('');
       }
     } catch (err) {
-      console.error('提交评论失败:', err);
+      // 删除console.error
     }
   };
 
@@ -216,7 +218,7 @@ export default function WishPage() {
 */
 
   // 使用动态加载的主题样式
-  const styles = themeStyle || themes.default;
+  const styles = themeStyle || themes.matrix;
 
   return (
     <div className={`${commonStyles.container} ${styles.container}`}>

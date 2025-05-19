@@ -394,19 +394,7 @@ export default function EditPage() {
           <div className={styles.formGroup}>
             <label htmlFor="theme">选择页面主题</label>
             <div className={styles.themeSelector}>
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'default' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'default'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.defaultPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>默认主题</h4>
-                  <p>简洁大方的基础样式</p>
-                </div>
-              </div>
-              
+              {/* 删除有问题的themes.map部分，直接使用单独的主题选项 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'dreamySky' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'dreamySky'})}

@@ -5,9 +5,9 @@ export default async function handler(req, res) {
     // 1. pages 主表
     await query(`
       CREATE TABLE IF NOT EXISTS pages (
-        uid VARCHAR(16) PRIMARY KEY,
+        uid VARCHAR(255) PRIMARY KEY,
         password VARCHAR(64) NOT NULL,
-        title TEXT,
+        title VARCHAR(255),
         content TEXT,
         css_id INT DEFAULT NULL,
         js_id INT DEFAULT NULL,
@@ -40,7 +40,8 @@ export default async function handler(req, res) {
     await query(`
       CREATE TABLE IF NOT EXISTS comments (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        page_uid VARCHAR(16),
+        page_uid VARCHAR(255),
+        author VARCHAR(255) DEFAULT '匿名',
         content TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (page_uid) REFERENCES pages(uid) ON DELETE CASCADE
@@ -51,10 +52,10 @@ export default async function handler(req, res) {
     await query(`
       CREATE TABLE IF NOT EXISTS page_views (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        page_uid VARCHAR(16),
-        viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        ip_address VARCHAR(45),
+        page_uid VARCHAR(255),
+        ip_address VARCHAR(255),
         user_agent TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (page_uid) REFERENCES pages(uid) ON DELETE CASCADE
       )
     `);
