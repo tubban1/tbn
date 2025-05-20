@@ -1,5 +1,6 @@
+// 在文件顶部导入 useRef
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from '../../styles/Edit.module.css';
 
 export default function EditPage() {
@@ -21,7 +22,7 @@ export default function EditPage() {
     name: '',
     greeting: '',
     interaction: '',
-    theme: 'default',
+    theme: 'matrix',
     matrixTexts: [],
     dreamySkyTexts: [], // 添加dreamySkyTexts字段
     paperLetterText: ''
@@ -63,7 +64,7 @@ export default function EditPage() {
         
         setFormData({
           title: data.title || '',
-          theme: content.theme || 'default',
+          theme: content.theme || 'matrix',
           // 加载所有主题的文字设置
           matrixTexts: Array.isArray(content.matrixTexts) ? content.matrixTexts : [],
           paperLetterTexts: Array.isArray(content.paperLetterTexts) ? content.paperLetterTexts : [],
@@ -179,14 +180,33 @@ export default function EditPage() {
     
     const [aiQuery, setAiQuery] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    // 添加 timeoutRef
+    const timeoutRef = useRef(null);
+    
+    // 在组件卸载时清除定时器
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }, []);
     
     const handleTextChange = (e) => {
       setLetterText(e.target.value);
-      // 直接更新formData，将整段文字作为单个元素存储
-      setFormData(prev => ({
-        ...prev,
-        paperLetterTexts: [e.target.value]
-      }));
+      
+      // 清除之前的定时器
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // 延迟更新 formData
+      timeoutRef.current = setTimeout(() => {
+        setFormData(prev => ({
+          ...prev,
+          paperLetterTexts: [e.target.value]
+        }));
+      }, 3000); // 延迟500毫秒
     };
     
     const handleAiGenerate = async () => {
@@ -274,6 +294,20 @@ export default function EditPage() {
   const ThemeTextEditor = () => {
     const [newText, setNewText] = useState('');
     const themeKey = `${formData.theme}Texts`;
+    const [aiQuery, setAiQuery] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    
+    // 定义收礼人和情境标签
+    const receiverTags = ['女神', '男神', '同学', '家人', '朋友', '闺蜜', '恋人', '老师', '同事'];
+    const situationTags = ['热恋', '暗恋', '思念', '分别', '回味', '祝福', '感谢', '鼓励', '道歉'];
+    
+    // 处理标签点击
+    const handleTagClick = (tag) => {
+      setAiQuery(prev => {
+        // 如果已有内容，添加空格再拼接，否则直接设置
+        return prev ? `${prev} ${tag}` : tag;
+      });
+    };
     
     const addText = () => {
       if (!newText.trim()) return;
@@ -310,25 +344,129 @@ export default function EditPage() {
       return themeMap[formData.theme] || formData.theme;
     };
     
+    const handleAiGenerate = async () => {
+      if (!aiQuery.trim()) return;
+      
+      setAiLoading(true);
+      try {
+        const response = await fetch('/api/ai_generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            query: `你将收到一个包含"对象"和"情境"的简短描述，请基于这些信息，输出5到10个最能代表该情境中的情感与核心意象的关键词或短语，可以包含emoji。输出格式为 array[string]，每个词语不超过7个字，重点提取情感词、动词、名词或具象表达。输出范例["暗恋", "注视", "心跳加速", "藏起心意", "默默关注", "小动作", "眼神", "忐忑", "憧憬", "日记"]\n描述: ${aiQuery}` 
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('AI生成请求失败');
+        }
+        
+        const data = await response.json();
+        
+        // 添加 console.log 查看完整的返回数据
+        console.log('AI生成返回数据:', data);
+        
+        // 从响应中提取AI生成的文本
+        const generatedText = data.choices && data.choices[0] && data.choices[0].message 
+          ? data.choices[0].message.content 
+          : '';
+        
+        // 添加 console.log 查看生成的文本内容
+        console.log('AI生成的文本内容:', generatedText);
+        
+        if (generatedText) {
+          try {
+            // 尝试解析生成的文本为数组
+            let keywords = [];
+            
+            // 检查是否已经是JSON格式
+            if (generatedText.trim().startsWith('[') && generatedText.trim().endsWith(']')) {
+              // 添加 console.log 查看JSON解析前的文本
+              console.log('尝试解析JSON:', generatedText);
+              keywords = JSON.parse(generatedText);
+              // 添加 console.log 查看JSON解析后的结果
+              console.log('JSON解析结果:', keywords);
+            } else {
+              // 尝试从文本中提取关键词
+              keywords = generatedText.split(/[,，、\n]/).map(item => item.trim()).filter(item => item);
+              // 添加 console.log 查看文本分割后的结果
+              console.log('文本分割结果:', keywords);
+            }
+            
+            // 将关键词添加到文本列表中
+            setFormData(prev => ({
+              ...prev,
+              [themeKey]: [...(prev[themeKey] || []), ...keywords]
+            }));
+          } catch (error) {
+            console.error('解析AI生成内容失败:', error);
+            // 添加更详细的错误日志
+            console.log('解析失败的文本:', generatedText);
+            console.log('错误详情:', error.message, error.stack);
+            setMessage('解析AI生成内容失败，请重试');
+          }
+        }
+      } catch (error) {
+        setMessage(`AI生成失败: ${error.message}`);
+      } finally {
+        setAiLoading(false);
+      }
+    };
+    
     return (
       <div className={styles.themeTextEditor}>
         <h3>{getThemeName()}文字</h3>
-        <p>添加显示在{getThemeName()}中的文字（每行一个）</p>
         
-        <div className={styles.textInputGroup}>
+        <div className={styles.tagsContainer}>
+          <div className={styles.tagSection}>
+            <p className={styles.tagTitle}>收礼人：</p>
+            <div className={styles.tagsList}>
+              {receiverTags.map((tag, index) => (
+                <span 
+                  key={`receiver-${index}`} 
+                  className={styles.tag}
+                  onClick={() => handleTagClick(tag)}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          
+          <div className={styles.tagSection}>
+            <p className={styles.tagTitle}>情境：</p>
+            <div className={styles.tagsList}>
+              {situationTags.map((tag, index) => (
+                <span 
+                  key={`sit-${index}`} 
+                  className={styles.tag}
+                  onClick={() => handleTagClick(tag)}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className={styles.aiGenerateGroup}>
           <input
             type="text"
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="输入文字..."
-            className={styles.textInput}
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="输入AI提示，描述对象和情境..."
+            className={styles.aiInput}
+            disabled={aiLoading}
           />
           <button 
             type="button" 
-            onClick={addText}
-            className={styles.addButton}
+            onClick={handleAiGenerate}
+            className={styles.aiButton}
+            disabled={aiLoading}
           >
-            添加
+            {aiLoading ? '生成中...' : 'AI生成'}
           </button>
         </div>
         
@@ -348,6 +486,25 @@ export default function EditPage() {
           {(!formData[themeKey] || formData[themeKey].length === 0) && (
             <p className={styles.noTexts}>暂无自定义文字，将使用默认文字</p>
           )}
+        </div>
+
+
+        <p>手动添加显示在{getThemeName()}中的文字（每行一个）</p>
+        <div className={styles.textInputGroup}>
+          <input
+            type="text"
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            placeholder="输入文字..."
+            className={styles.textInput}
+          />
+          <button 
+            type="button" 
+            onClick={addText}
+            className={styles.addButton}
+          >
+            添加
+          </button>
         </div>
       </div>
     );
@@ -435,6 +592,7 @@ export default function EditPage() {
     );
   }
 
+  // 在渲染部分使用 ThemeTextEditor 替代 MatrixTextsEditor
   return (
     <div className={styles.container}>
       <div className={styles.editCard}>
@@ -456,7 +614,7 @@ export default function EditPage() {
           <div className={styles.formGroup}>
             <label htmlFor="theme">选择页面主题</label>
             <div className={styles.themeSelector}>
-              {/* 删除有问题的themes.map部分，直接使用单独的主题选项 */}
+              {/* 只显示三个主题：梦幻星空、信纸和黑客帝国 */}
               <div 
                 className={`${styles.themeOption} ${formData.theme === 'dreamySky' ? styles.selectedTheme : ''}`}
                 onClick={() => setFormData({...formData, theme: 'dreamySky'})}
@@ -465,9 +623,9 @@ export default function EditPage() {
                   <div className={styles.dreamySkyPreview}></div>
                 </div>
                 <div className={styles.themeInfo}>
-                  <h4>梦幻星空主题</h4>
-                  <p>神秘、浪漫、静谧</p>
-                  <small>以深蓝色与星点为背景，流动星光效果，搭配梦幻字体与柔和动画</small>
+                  <h4>梦幻星空</h4>
+                  <p>自由，飞翔</p>
+                  <small>以深蓝色与星空为背景，营造自由氛围</small>
                 </div>
               </div>
               
@@ -480,120 +638,8 @@ export default function EditPage() {
                 </div>
                 <div className={styles.themeInfo}>
                   <h4>信纸主题</h4>
-                  <p>温馨、怀旧、手写感</p>
-                  <small>仿真信纸背景，带有打字机效果和笔迹动画</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'minimalBW' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'minimalBW'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.minimalBWPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>极简黑白主题</h4>
-                  <p>简洁、现代、克制</p>
-                  <small>黑白灰为主色调，无多余装饰，纯文字与几何排版突出重点</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'freshGreen' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'freshGreen'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.freshGreenPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>小清新绿色主题</h4>
-                  <p>清爽、自然、生机</p>
-                  <small>以草绿色、浅蓝色为主，搭配手绘树叶、阳光和水滴图案，轻盈动感</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'pixelRetro' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'pixelRetro'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.pixelRetroPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>复古像素风主题</h4>
-                  <p>怀旧、游戏风、趣味</p>
-                  <small>8-bit 像素画风，颜色跳脱，使用像素字体和动图元素</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'goldenCelebration' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'goldenCelebration'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.goldenCelebrationPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>金色庆典主题</h4>
-                  <p>喜庆、奢华、节日氛围</p>
-                  <small>金色、红色为主，动态烟花或礼花效果，字体有光泽渐变</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'nightNeon' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'nightNeon'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.nightNeonPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>夜间霓虹主题</h4>
-                  <p>酷炫、科技、城市夜生活</p>
-                  <small>深色背景搭配亮丽霓虹灯管风格的文字与边框，流光动画</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'fairyForest' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'fairyForest'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.fairyForestPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>童话森林主题</h4>
-                  <p>童趣、梦幻、温暖</p>
-                  <small>卡通风格森林背景，有小动物、蘑菇、小屋等元素，柔和颜色</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'travelPostcard' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'travelPostcard'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.travelPostcardPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>旅行明信片主题</h4>
-                  <p>开放、探险、世界感</p>
-                  <small>仿邮票明信片设计，搭配地图、护照印章、飞机路径动画</small>
-                </div>
-              </div>
-              
-              <div 
-                className={`${styles.themeOption} ${formData.theme === 'futuristicTech' ? styles.selectedTheme : ''}`}
-                onClick={() => setFormData({...formData, theme: 'futuristicTech'})}
-              >
-                <div className={styles.themePreview}>
-                  <div className={styles.futuristicTechPreview}></div>
-                </div>
-                <div className={styles.themeInfo}>
-                  <h4>未来科技主题</h4>
-                  <p>高科技、现代、未来感</p>
-                  <small>线条构图、光效边框、玻璃拟物风（glassmorphism），UI 像操作系统面板</small>
+                  <p>温馨、怀旧、真挚</p>
+                  <small>模拟手写信纸效果，传递真挚情感</small>
                 </div>
               </div>
               
@@ -606,17 +652,17 @@ export default function EditPage() {
                 </div>
                 <div className={styles.themeInfo}>
                   <h4>黑客帝国主题</h4>
-                  <p>酷炫、神秘、科技感</p>
-                  <small>紫色霓虹文字雨效果，黑色背景，营造出电影《黑客帝国》的视觉风格</small>
+                  <p>科技、未来、酷炫</p>
+                  <small>黑色背景与粉色字雨，展现科技感</small>
                 </div>
               </div>
             </div>
           </div>
           
           {/* 根据当前选择的主题显示相应的文字编辑器 */}
-          {formData.theme === 'matrix' && <MatrixTextsEditor />}
-          {formData.theme === 'paperLetter' && <PaperLetterEditor />}
-          {formData.theme !== 'matrix' && formData.theme !== 'paperLetter' && <ThemeTextEditor />}
+          {formData.theme === 'paperLetter' ? (<PaperLetterEditor />
+        ) : (<ThemeTextEditor />
+        )}
           
           <button type="submit" className={styles.submitButton} disabled={submitting}>
             {submitting ? '保存中...' : '保存更改'}

@@ -192,7 +192,7 @@ export default function Admin() {
               <th>UID</th>
               <th>密码</th>
               <th>标题</th>
-              <th>创建时间</th>
+              <th>更新时间</th>
               <th>已分配</th>
               <th>已售出</th>
               <th>页面信息</th>
@@ -205,7 +205,7 @@ export default function Admin() {
                   <td>{page.uid}</td>
                   <td>{page.password}</td>
                   <td>{page.title}</td>
-                  <td>{new Date(page.created_at).toLocaleString()}</td>
+                  <td>{new Date(page.updated_at).toLocaleString()}</td>
                   <td>
                     <label className={styles.switch}>
                       <input

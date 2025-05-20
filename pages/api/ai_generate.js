@@ -12,8 +12,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '请提供有效的查询内容' });
   }
 
-  // API密钥应该存储在环境变量中，这里为了演示直接使用
-  const API_KEY = 'sk-cjovzrrkjmmweprc';
+  // 从环境变量中读取API密钥
+  const API_KEY = process.env.API_SECRET;
+  
+  // 验证API密钥是否存在
+  if (!API_KEY) {
+    console.error('API密钥未配置');
+    return res.status(500).json({ error: 'API配置错误' });
+  }
+  
   const url = 'https://cloud.infini-ai.com/maas/v1/chat/completions';
 
   try {

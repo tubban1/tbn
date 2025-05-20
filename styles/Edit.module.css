@@ -769,3 +769,44 @@
   background-color: #a29bfe;
   cursor: not-allowed;
 }
+
+/* 标签容器样式 */
+.tagsContainer {
+  margin-bottom: 15px;
+}
+
+.tagSection {
+  margin-bottom: 10px;
+}
+
+.tagTitle {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.tagsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background-color: #f0f0f0;
+  border-radius: 16px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag:hover {
+  background-color: #e0e0e0;
+}
+
+.tag:active {
+  transform: scale(0.95);
+}

@@ -35,7 +35,7 @@ export function createMatrixRainEffect(styles, content) {
     : defaultTexts;
   
   // 创建多个文字元素，均匀分布在屏幕上
-  const wordCount = 150; // 减少文字数量，从300减少到150
+  const wordCount = 80; // 减少文字数量，从300减少到80
   const containerWidth = window.innerWidth;
   const containerHeight = window.innerHeight;
   
