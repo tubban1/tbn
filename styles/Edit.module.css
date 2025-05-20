@@ -662,3 +662,110 @@
   color: #a94442;
   border: 1px solid #ebccd1;
 }
+
+/* 分享表格样式 */
+.shareTable {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.shareTableContent {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.shareTableContent td {
+  padding: 15px;
+  border: 1px solid #eaeaea;
+}
+
+.shareLabel {
+  width: 80px;
+  font-weight: bold;
+  background-color: #f0f0f0;
+  text-align: right;
+}
+
+.shareContent {
+  text-align: center;
+}
+
+.shareAction {
+  width: 120px;
+  text-align: center;
+}
+
+.qrCode {
+  width: 150px;
+  height: 150px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.linkText {
+  font-size: 16px;
+  color: #333;
+  padding: 8px 12px;
+  background-color: #eee;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.shareButton {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  width: 100%;
+}
+
+.shareButton:hover {
+  background-color: #2980b9;
+}
+
+.shareActions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.aiGenerateGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.aiInput {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.aiButton {
+  background-color: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.aiButton:hover {
+  background-color: #5b4bc7;
+}
+
+.aiButton:disabled {
+  background-color: #a29bfe;
+  cursor: not-allowed;
+}

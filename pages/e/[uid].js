@@ -177,6 +177,9 @@ export default function EditPage() {
         : ''
     );
     
+    const [aiQuery, setAiQuery] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    
     const handleTextChange = (e) => {
       setLetterText(e.target.value);
       // 直接更新formData，将整段文字作为单个元素存储
@@ -186,10 +189,69 @@ export default function EditPage() {
       }));
     };
     
+    const handleAiGenerate = async () => {
+      if (!aiQuery.trim()) return;
+      
+      setAiLoading(true);
+      try {
+        const response = await fetch('/api/ai_generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: aiQuery }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('AI生成请求失败');
+        }
+        
+        const data = await response.json();
+        
+        // 从响应中提取AI生成的文本
+        const generatedText = data.choices && data.choices[0] && data.choices[0].message 
+          ? data.choices[0].message.content 
+          : '';
+        
+        if (generatedText) {
+          // 更新文本区域
+          setLetterText(generatedText);
+          // 更新formData
+          setFormData(prev => ({
+            ...prev,
+            paperLetterTexts: [generatedText]
+          }));
+        }
+      } catch (error) {
+        setMessage(`AI生成失败: ${error.message}`);
+      } finally {
+        setAiLoading(false);
+      }
+    };
+    
     return (
       <div className={styles.paperLetterEditor}>
         <h3>信纸主题文字</h3>
         <p>请输入显示在信纸主题中的文字内容</p>
+        
+        <div className={styles.aiGenerateGroup}>
+          <input
+            type="text"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="输入AI提示，例如：写一段生日祝福..."
+            className={styles.aiInput}
+            disabled={aiLoading}
+          />
+          <button 
+            type="button" 
+            onClick={handleAiGenerate}
+            className={styles.aiButton}
+            disabled={aiLoading}
+          >
+            {aiLoading ? '生成中...' : 'AI生成'}
+          </button>
+        </div>
         
         <div className={styles.textareaGroup}>
           <textarea
@@ -559,15 +621,86 @@ export default function EditPage() {
           <button type="submit" className={styles.submitButton} disabled={submitting}>
             {submitting ? '保存中...' : '保存更改'}
           </button>
+          
+          {message && <p className={styles.message}>{message}</p>}
         </form>
         
-        {message && <p className={styles.message}>{message}</p>}
-        
-        <div className={styles.previewSection}>
-          <h2>预览</h2>
-          <div className={styles.preview}>
-            <h1>{formData.title}</h1>
-            <p>主题: {formData.theme}</p>
+        <div className={styles.formGroup}>
+          <h2>分享展示页面</h2>
+          <div className={styles.shareTable}>
+            <table className={styles.shareTableContent}>
+              <tbody>
+                <tr>
+                  <td className={styles.shareLabel}>二维码</td>
+                  <td className={styles.shareContent}>
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://tbn.cc/w/${uid}`} 
+                      alt="页面二维码" 
+                      className={styles.qrCode}
+                    />
+                  </td>
+                  <td className={styles.shareAction}>
+                    <button 
+                      type="button" 
+                      className={styles.shareButton}
+                      onClick={() => {
+                        // 分享二维码
+                        if (navigator.share) {
+                          fetch(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://tbn.cc/w/${uid}`)
+                            .then(response => response.blob())
+                            .then(blob => {
+                              const file = new File([blob], `祝福页面_${uid}_二维码.png`, { type: 'image/png' });
+                              navigator.share({
+                                title: '祝福页面二维码',
+                                text: '扫描二维码查看我的祝福页面',
+                                files: [file]
+                              }).catch(err => {
+                                console.error('分享失败:', err);
+                                alert('分享失败，请手动保存或分享链接');
+                              });
+                            });
+                        } else {
+                          // 如果不支持原生分享，提示用户
+                          alert('您的浏览器不支持直接分享图片，请长按二维码保存或分享链接');
+                        }
+                      }}
+                    >
+                      分享二维码
+                    </button>
+                  </td>
+                </tr>
+                <tr>
+                  <td className={styles.shareLabel}>链接</td>
+                  <td className={styles.shareContent}>
+                    <span className={styles.linkText}>tbn.cc/w/{uid}</span>
+                  </td>
+                  <td className={styles.shareAction}>
+                    <button 
+                      type="button" 
+                      className={styles.shareButton}
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: formData.title || '祝福页面',
+                            text: '查看我的祝福页面',
+                            url: `https://tbn.cc/w/${uid}`
+                          }).catch(err => {
+                            console.error('分享失败:', err);
+                            navigator.clipboard.writeText(`https://tbn.cc/w/${uid}`);
+                            alert('链接已复制到剪贴板');
+                          });
+                        } else {
+                          navigator.clipboard.writeText(`https://tbn.cc/w/${uid}`);
+                          alert('链接已复制到剪贴板');
+                        }
+                      }}
+                    >
+                      分享链接
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

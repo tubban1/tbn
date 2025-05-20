@@ -2,8 +2,8 @@
   "/_app": "pages/_app.js",
   "/_document": "pages/_document.js",
   "/_error": "pages/_error.js",
-  "/w/[uid]": "pages/w/[uid].js",
   "/api/pages/[uid]": "pages/api/pages/[uid].js",
-  "/admin": "pages/admin.js",
-  "/e/[uid]": "pages/e/[uid].js"
+  "/api/ai_generate": "pages/api/ai_generate.js",
+  "/e/[uid]": "pages/e/[uid].js",
+  "/admin": "pages/admin.js"
 }

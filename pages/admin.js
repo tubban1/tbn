@@ -6,12 +6,27 @@ export default function Admin() {
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // 管理员密码 - 在实际生产环境中应该通过环境变量或后端API验证
+  const ADMIN_PASSWORD = 'biel2025';
+
+  // 验证密码
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setLoginError('');
+      // 登录成功后获取页面数据
+      fetchPages();
+    } else {
+      setLoginError('密码错误，请重试');
+    }
+  };
 
   // 获取所有页面
-  useEffect(() => {
-    fetchPages();
-  }, []);
-
   const fetchPages = async () => {
     try {
       const response = await fetch('/api/pages');
@@ -22,6 +37,13 @@ export default function Admin() {
       setMessage('获取页面失败');
     }
   };
+
+  // 只有在已认证状态下才获取页面数据
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPages();
+    }
+  }, [isAuthenticated]);
 
   // 创建页面
   const createPages = async () => {
@@ -98,9 +120,43 @@ export default function Admin() {
     }
   };
 
+  // 如果未认证，显示登录表单
+  if (!isAuthenticated) {
+    return (
+      <div className={styles.container}>
+        <h1 className={styles.title}>管理员登录</h1>
+        <form onSubmit={handleLogin} className={styles.loginForm}>
+          <div className={styles.inputGroup}>
+            <label htmlFor="password">请输入管理员密码:</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={styles.passwordInput}
+              required
+            />
+          </div>
+          {loginError && <p className={styles.errorMessage}>{loginError}</p>}
+          <button type="submit" className={styles.loginButton}>
+            登录
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>页面管理</h1>
+      <div className={styles.logoutSection}>
+        <button 
+          onClick={() => setIsAuthenticated(false)} 
+          className={styles.logoutButton}
+        >
+          退出登录
+        </button>
+      </div>
       
       {/* 创建页面区域 */}
       <div className={styles.createSection}>
