@@ -10,8 +10,8 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // 管理员密码 - 在实际生产环境中应该通过环境变量或后端API验证
-  const ADMIN_PASSWORD = 'biel2025';
+  // 管理员密码 - 通过环境变量配置
+  const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
 
   // 验证密码
   const handleLogin = (e) => {
