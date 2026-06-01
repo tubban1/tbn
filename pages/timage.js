@@ -11,7 +11,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function TImage() {
   const [activeTab, setActiveTab] = useState('text');
-  
+
   // Pre-configured travel types
   const travelCategories = [
     {
@@ -108,13 +108,13 @@ export default function TImage() {
   const [highlights, setHighlights] = useState('碧绿海子、五彩池、珍珠滩瀑布');
   const [vibe, setVibe] = useState('cinematic warm');
   const [season, setSeason] = useState('Misty Autumn morning');
-  
+
   // Basic states
   const [prompt, setPrompt] = useState('');
   const [size, setSize] = useState('1024x1792');
   const [quality, setQuality] = useState('standard');
   const [format, setFormat] = useState('jpeg');
-  
+
   // Image Uploads (Image-to-Image / AI旅拍)
   const [image1, setImage1] = useState(null);
   const [image1Preview, setImage1Preview] = useState(null);
@@ -151,7 +151,7 @@ export default function TImage() {
   // Update prompt whenever parameters change
   useEffect(() => {
     if (!selectedType) return;
-    
+
     let generatedPrompt = selectedType.defaultPrompt
       .replace('[destination]', destination)
       .replace('[highlights]', highlights)
@@ -282,7 +282,7 @@ export default function TImage() {
     setIsOptimizing(true);
     setErrorMessage('');
     setInfoMessage('');
-    
+
     try {
       const categoryName = selectedType ? selectedType.name : '旅游攻略图';
       const response = await axios.post('/api/timage/optimize-prompt', {
@@ -344,7 +344,6 @@ export default function TImage() {
     }
 
     setIsProcessing(true);
-    setCurrentSessionOutputs([]);
 
     try {
       if (activeTab === 'text') {
@@ -353,39 +352,56 @@ export default function TImage() {
           const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].prompt);
           console.log(`[TImage Batch] Starting parallel batch generation for ${batchPrompts.length} prompts`);
 
-          const promises = batchPrompts.map(async (p) => {
-            const res = await axios.post('/api/timage/generate', {
-              prompt: p,
-              size,
-              quality,
-              format,
-              email
-            });
-            if (res.data?.success) {
-              return {
-                displayUrl: res.data.freeimageUrl,
-                generatedUrl: res.data.originalUrl || res.data.freeimageUrl
-              };
-            } else {
-              throw new Error(res.data?.error || '生成失败');
+          // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
+          setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
+
+          const promises = batchPrompts.map(async (p, idx) => {
+            try {
+              const res = await axios.post('/api/timage/generate', {
+                prompt: p,
+                size,
+                quality,
+                format,
+                email
+              });
+              if (res.data?.success) {
+                const item = {
+                  displayUrl: res.data.freeimageUrl,
+                  generatedUrl: res.data.originalUrl || res.data.freeimageUrl
+                };
+                // Deliver this image immediately into its pre-allocated slot!
+                setCurrentSessionOutputs(prev => {
+                  const updated = [...prev];
+                  updated[idx] = item;
+                  return updated;
+                });
+                return item;
+              } else {
+                console.error(`Prompt slot ${idx} failed:`, res.data?.error);
+                return null;
+              }
+            } catch (err) {
+              console.error(`Prompt slot ${idx} error:`, err);
+              return null;
             }
           });
 
           const results = await Promise.all(promises);
-          const validResults = results.filter(r => r && r.displayUrl);
+          const validResults = results.filter(Boolean);
 
           if (validResults.length > 0) {
-            setCurrentSessionOutputs(validResults);
-            setDisplayUrl(validResults[0].displayUrl);
-            setGeneratedUrl(validResults[0].generatedUrl);
-            
+            // Find the first completed output to set as primary highlights
+            const firstValid = validResults[0];
+            setDisplayUrl(firstValid.displayUrl);
+            setGeneratedUrl(firstValid.generatedUrl);
+
             // Re-fetch remaining credits
             const lastRes = await axios.post('/api/timage/pre-check', { email });
             if (lastRes.data?.success) {
               setCredits(lastRes.data.credits);
             }
-            
-            setInfoMessage(`🎉 成功批量生成了 ${validResults.length} 张高清旅游大图！请在下方交付物中查收。`);
+
+            setInfoMessage(`🎉 成功批量生成并交付了 ${validResults.length} 张高清旅游大图！`);
             loadHistory(email);
           }
         } else {
@@ -456,7 +472,7 @@ export default function TImage() {
         <title>天工创界 | 旅游行业 AI 智能生图 Agent</title>
         <meta name="description" content="专为旅游行业客户定制的AI智能营销长图、爆款海报、目的地视觉、酒店民宿氛围与AI旅拍出片系统" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" type="image/png" href="/tg.png" />
+        <link rel="icon" href="/favicon.ico" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
@@ -481,14 +497,14 @@ export default function TImage() {
               </div>
             ) : (
               <div className="login-form">
-                <input 
-                  type="email" 
-                  placeholder="输入邮箱登录 / 自动注册..." 
+                <input
+                  type="email"
+                  placeholder="输入邮箱登录 / 自动注册..."
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="login-input"
                 />
-                <button 
+                <button
                   onClick={() => handleVerifyEmail(email)}
                   disabled={isCheckingEmail}
                   className="btn-login"
@@ -514,19 +530,19 @@ export default function TImage() {
       {/* Main Workspace */}
       <main className="main-workspace">
         <div className="workspace-grid">
-          
+
           {/* Left Sidebar: Travel Templates Categories */}
           <div className="sidebar-section">
             <div className="section-header">
               <h3>🎯 旅游核心产出物料分类</h3>
               <p>选择类型一键加载专属微调提示词模版与推荐尺寸</p>
             </div>
-            
+
             {travelCategories.map((category) => (
               <div key={category.id} className="category-group">
                 <h4 className="category-title">{category.title}</h4>
                 <span className="category-subtitle">{category.description}</span>
-                
+
                 <div className="types-list">
                   {category.types.map((type) => (
                     <button
@@ -548,19 +564,19 @@ export default function TImage() {
 
           {/* Right Area: Prompt Tuning & Live Generation */}
           <div className="generation-section">
-            
+
             {/* Top Config Card */}
             <div className="config-card">
               <div className="config-header">
                 <h3>🛠️ 目的地场景深度微调参数 ({selectedType.name})</h3>
                 <span className="config-desc">通过调整以下因子，AI 会自动为您拼装出最优的商业级渲染 Prompts</span>
               </div>
-              
+
               <div className="parameters-grid">
                 <div className="param-item">
                   <label>📍 目的地与核心地标 (Destination)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     placeholder="例如：京都清水寺、冰岛黑沙滩..."
@@ -571,8 +587,8 @@ export default function TImage() {
                 {selectedType.id === 'itinerary' && (
                   <div className="param-item">
                     <label>📝 行程亮点 (Highlights - 仅长图攻略有效)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={highlights}
                       onChange={(e) => setHighlights(e.target.value)}
                       placeholder="例如：地道美食街、日落巡航..."
@@ -583,8 +599,8 @@ export default function TImage() {
 
                 <div className="param-item">
                   <label>🔮 艺术风格与视效 (Art Style / Vibe)</label>
-                  <select 
-                    value={vibe} 
+                  <select
+                    value={vibe}
                     onChange={(e) => setVibe(e.target.value)}
                     className="param-select"
                   >
@@ -598,8 +614,8 @@ export default function TImage() {
 
                 <div className="param-item">
                   <label>⏰ 季节与光效 (Season & Lighting)</label>
-                  <select 
-                    value={season} 
+                  <select
+                    value={season}
                     onChange={(e) => setSeason(e.target.value)}
                     className="param-select"
                   >
@@ -616,14 +632,14 @@ export default function TImage() {
             {/* Mode & Prompt Card */}
             <div className="workspace-card">
               {/* Tab Selector */}
-               <div className="mode-tabs">
-                <button 
+              <div className="mode-tabs">
+                <button
                   onClick={() => { setActiveTab('text'); setGeneratedUrl(null); setDisplayUrl(null); }}
                   className={`mode-tab ${activeTab === 'text' ? 'active' : ''}`}
                 >
                   ✨ 文本智能生成 (Text-to-Image)
                 </button>
-                <button 
+                <button
                   onClick={() => { setActiveTab('image'); setGeneratedUrl(null); setDisplayUrl(null); }}
                   className={`mode-tab ${activeTab === 'image' ? 'active' : ''}`}
                 >
@@ -639,13 +655,13 @@ export default function TImage() {
               {activeTab === 'image' && (
                 <div className="upload-wrapper">
                   <div className="upload-box-container">
-                    <div 
+                    <div
                       onClick={() => fileInputRef1.current.click()}
                       className="upload-dropzone"
                     >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef1} 
+                      <input
+                        type="file"
+                        ref={fileInputRef1}
                         onChange={(e) => handleFileChange(e, 1)}
                         style={{ display: 'none' }}
                         accept="image/*"
@@ -664,13 +680,13 @@ export default function TImage() {
                       )}
                     </div>
 
-                    <div 
+                    <div
                       onClick={() => fileInputRef2.current.click()}
                       className="upload-dropzone"
                     >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef2} 
+                      <input
+                        type="file"
+                        ref={fileInputRef2}
                         onChange={(e) => handleFileChange(e, 2)}
                         style={{ display: 'none' }}
                         accept="image/*"
@@ -823,8 +839,8 @@ export default function TImage() {
                 disabled={isProcessing}
                 className={`btn-action-generate ${isProcessing ? 'loading' : ''}`}
               >
-                {isProcessing 
-                  ? '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...' 
+                {isProcessing
+                  ? '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...'
                   : selectedOptimizedIndexes.length > 1
                     ? `🚀 开启并行渲染：一次性生成已选的 ${selectedOptimizedIndexes.length} 张图 (总计消耗 ${selectedOptimizedIndexes.length * 5} 额度)`
                     : '🚀 调遣 AI 绘画引擎，开始高保真渲染 (消耗 5 额度)'
@@ -832,17 +848,23 @@ export default function TImage() {
               </button>
             </div>
 
-             {/* Loading Animation Card */}
-            {isProcessing && (
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+              }
+            `}</style>
+
+            {/* Loading Animation Card (Only for single image generation) */}
+            {isProcessing && !(activeTab === 'text' && selectedOptimizedIndexes.length > 1) && (
               <div className="result-card">
                 <div className="result-header">
                   <h3>🌌 AI 绘画智能视界合并中...</h3>
-                  <p>
-                    {selectedOptimizedIndexes.length > 1 
-                      ? `正在并行调度多个计算单元进行 ${selectedOptimizedIndexes.length} 幅艺术方案的透镜折射渲染，这可能需要稍长一点的时间...` 
-                      : '奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...'
-                    }
-                  </p>
+                  <p>奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...</p>
                 </div>
                 <div className="result-body-loader" style={{ marginTop: '1rem' }}>
                   <SingularityLoader />
@@ -850,81 +872,131 @@ export default function TImage() {
               </div>
             )}
 
-            {/* Results Card */}
-            {currentSessionOutputs.length > 0 && !isProcessing && (
+            {/* Results Card (Renders progressively as slots fill up) */}
+            {currentSessionOutputs.length > 0 && (
               <div className="result-card">
                 <div className="result-header">
-                  <h3>🎨 天工创界 AI 智能生成交付物</h3>
-                  <p>大功告成！您可以下载原图或复制永久链接到您的电子路书/网页中</p>
+                  <h3>
+                    {isProcessing 
+                      ? '🎨 天工创界 AI 正在并行交付中...' 
+                      : '🎨 天工创界 AI 智能生成交付物'
+                    }
+                  </h3>
+                  <p>
+                    {isProcessing
+                      ? `正在多线程透镜折射并发渲染中... 已完成 (${currentSessionOutputs.filter(Boolean).length}/${currentSessionOutputs.length})`
+                      : '大功告成！您可以下载原图或复制永久链接到您的电子路书/网页中'
+                    }
+                  </p>
                 </div>
 
                 <div className="result-body">
-                  <div className="result-images-grid" style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: currentSessionOutputs.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', 
-                    gap: '1.5rem', 
+                  <div className="result-images-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: currentSessionOutputs.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
+                    gap: '1.5rem',
                     width: '100%',
-                    marginBottom: '1rem' 
+                    marginBottom: '1rem'
                   }}>
-                    {currentSessionOutputs.map((out, idx) => (
-                      <div key={idx} className="result-item-box" style={{ 
-                        background: 'rgba(15, 23, 42, 0.4)', 
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        borderRadius: '16px', 
-                        padding: '16px', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '12px',
-                        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {currentSessionOutputs.length > 1 && (
-                          <span style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#2dd4bf', 
-                            fontWeight: '600', 
-                            background: 'rgba(45, 212, 191, 0.1)', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px', 
-                            alignSelf: 'flex-start' 
+                    {currentSessionOutputs.map((out, idx) => {
+                      if (!out) {
+                        // Render elegant animated loader placeholder for this slot!
+                        return (
+                          <div key={`loading-${idx}`} className="result-item-box placeholder-loading" style={{
+                            background: 'rgba(15, 23, 42, 0.2)',
+                            border: '2px dashed rgba(45, 212, 191, 0.25)',
+                            borderRadius: '16px',
+                            padding: '32px 24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '20px',
+                            minHeight: '430px',
+                            height: '100%',
+                            boxShadow: 'inset 0 0 20px rgba(45, 212, 191, 0.03)',
+                            animation: 'pulse 2s infinite ease-in-out'
                           }}>
-                            画作方案 {idx + 1}
-                          </span>
-                        )}
-                        <div className="result-image-wrapper" style={{ 
-                          position: 'relative',
-                          borderRadius: '12px',
-                          overflow: 'hidden',
-                          height: currentSessionOutputs.length > 1 ? '340px' : 'auto',
-                          maxHeight: currentSessionOutputs.length > 1 ? 'none' : '600px'
+                            <div className="loader-ring" style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              border: '3.5px solid rgba(45, 212, 191, 0.1)',
+                              borderTop: '3.5px solid #2dd4bf',
+                              animation: 'spin 1.2s linear infinite'
+                            }}></div>
+                            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <span style={{ fontSize: '0.85rem', color: '#2dd4bf', fontWeight: '600', letterSpacing: '0.05em' }}>
+                                画作方案 {idx + 1}
+                              </span>
+                              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', margin: 0 }}>
+                                ⚡ 正在高并发调制像素中...
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={idx} className="result-item-box" style={{
+                          background: 'rgba(15, 23, 42, 0.4)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          borderRadius: '16px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
                         }}>
-                          <img src={out.displayUrl} alt={`AI output ${idx + 1}`} className="result-img" style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            objectFit: currentSessionOutputs.length > 1 ? 'cover' : 'contain', 
-                            borderRadius: '12px' 
-                          }} />
+                          {currentSessionOutputs.length > 1 && (
+                            <span style={{
+                              fontSize: '0.75rem',
+                              color: '#2dd4bf',
+                              fontWeight: '600',
+                              background: 'rgba(45, 212, 191, 0.1)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              alignSelf: 'flex-start'
+                            }}>
+                              画作方案 {idx + 1}
+                            </span>
+                          )}
+                          <div className="result-image-wrapper" style={{
+                            position: 'relative',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            height: currentSessionOutputs.length > 1 ? '340px' : 'auto',
+                            maxHeight: currentSessionOutputs.length > 1 ? 'none' : '600px'
+                          }}>
+                            <img src={out.displayUrl} alt={`AI output ${idx + 1}`} className="result-img" style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: currentSessionOutputs.length > 1 ? 'cover' : 'contain',
+                              borderRadius: '12px'
+                            }} />
+                          </div>
+                          <div className="result-actions" style={{
+                            display: 'flex',
+                            gap: '8px',
+                            flexWrap: 'wrap',
+                            marginTop: 'auto'
+                          }}>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(out.generatedUrl);
+                                alert('已成功复制图片永久链接到剪贴板！');
+                              }}
+                              className="btn-result-action"
+                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0 }}
+                            >
+                              🔗 复制外链
+                            </button>
+                            <a href={out.generatedUrl} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>👁️ 预览</a>
+                            <a href={out.generatedUrl} download={`travel_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>💾 保存</a>
+                          </div>
                         </div>
-                        <div className="result-actions" style={{ 
-                          display: 'flex', 
-                          gap: '8px', 
-                          flexWrap: 'wrap',
-                          marginTop: 'auto'
-                        }}>
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(out.generatedUrl);
-                              alert('已成功复制图片永久链接到剪贴板！');
-                            }} 
-                            className="btn-result-action" 
-                            style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0 }}
-                          >
-                            🔗 复制外链
-                          </button>
-                          <a href={out.generatedUrl} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>👁️ 预览</a>
-                          <a href={out.generatedUrl} download={`travel_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>💾 保存</a>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -956,11 +1028,11 @@ export default function TImage() {
                       <p className="gallery-prompt-text">{item.prompt || '旅游图景'}</p>
                       <div className="gallery-card-actions">
                         <a href={item.generated_url} target="_blank" rel="noreferrer" className="gallery-action-link">预览</a>
-                        <button 
+                        <button
                           onClick={() => {
                             navigator.clipboard.writeText(item.generated_url);
                             alert('复制成功！');
-                          }} 
+                          }}
                           className="gallery-action-btn"
                         >
                           复制链接
