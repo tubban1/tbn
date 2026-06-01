@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import Head from 'next/head';
 import axios from 'axios';
+import dynamic from 'next/dynamic';
+
+const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
+  ssr: false
+});
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -660,8 +665,21 @@ export default function TImage() {
               </button>
             </div>
 
+             {/* Loading Animation Card */}
+            {isProcessing && (
+              <div className="result-card">
+                <div className="result-header">
+                  <h3>🌌 AI 绘画智能视界合并中...</h3>
+                  <p>奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...</p>
+                </div>
+                <div className="result-body-loader" style={{ marginTop: '1rem' }}>
+                  <SingularityLoader />
+                </div>
+              </div>
+            )}
+
             {/* Results Card */}
-            {displayUrl && (
+            {displayUrl && !isProcessing && (
               <div className="result-card">
                 <div className="result-header">
                   <h3>🎨 AI 智能生成交付物</h3>
