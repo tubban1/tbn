@@ -132,6 +132,8 @@ export default function TImage() {
   const [simpleIdea, setSimpleIdea] = useState('');
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedResults, setOptimizedResults] = useState([]);
+  const [selectedOptimizedIndexes, setSelectedOptimizedIndexes] = useState([]);
+  const [currentSessionOutputs, setCurrentSessionOutputs] = useState([]);
 
   // Email verification state (Simplifed directly calling backend pre-check)
   const [email, setEmail] = useState('');
@@ -289,8 +291,15 @@ export default function TImage() {
       });
 
       if (response.data && response.data.success) {
-        setOptimizedResults(response.data.optimizedPrompts || []);
-        setInfoMessage('🪄 Gemini 成功为您改写并润色了 3 款不同风格的绝美指令！请点击任意一款直接应用。');
+        const results = response.data.optimizedPrompts || [];
+        setOptimizedResults(results);
+        if (results.length > 0) {
+          setSelectedOptimizedIndexes([0]); // Default to selecting the first prompt card
+          setPrompt(results[0].prompt);    // Sync first prompt to main text area
+        } else {
+          setSelectedOptimizedIndexes([]);
+        }
+        setInfoMessage('🪄 Gemini 成功为您改写并润色了 3 款不同风格的绝美指令！您可以勾选多条，一次性生成多张大图！');
       } else {
         setErrorMessage(response.data.error || '提示词优化失败');
       }
@@ -314,53 +323,95 @@ export default function TImage() {
       return;
     }
 
-    if (credits < 5) {
-      setErrorMessage('额度不足！请点击右上方按钮充值额度。');
-      return;
-    }
+    // Determine if batch mode is active
+    const isBatchMode = activeTab === 'text' && selectedOptimizedIndexes.length > 1;
 
-    if (!prompt) {
-      setErrorMessage('请输入画面描述提示词！');
-      return;
+    if (isBatchMode) {
+      const totalCreditsNeeded = selectedOptimizedIndexes.length * 5;
+      if (credits < totalCreditsNeeded) {
+        setErrorMessage(`额度不足！批量生成 ${selectedOptimizedIndexes.length} 张图需要 ${totalCreditsNeeded} 额度，当前仅剩 ${credits} 额度。`);
+        return;
+      }
+    } else {
+      if (credits < 5) {
+        setErrorMessage('额度不足！请点击右上方按钮充值额度。');
+        return;
+      }
+      if (!prompt) {
+        setErrorMessage('请输入画面描述提示词！');
+        return;
+      }
     }
 
     setIsProcessing(true);
+    setCurrentSessionOutputs([]);
 
     try {
       if (activeTab === 'text') {
-        const response = await axios.post('/api/timage/generate', {
-          prompt,
-          size,
-          quality,
-          format,
-          email
-        });
+        if (isBatchMode) {
+          // BATCH GENERATION FLOW
+          const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].prompt);
+          console.log(`[TImage Batch] Starting parallel batch generation for ${batchPrompts.length} prompts`);
 
-        if (response.data?.success) {
-          setGeneratedUrl(response.data.originalUrl || response.data.freeimageUrl);
-          setDisplayUrl(response.data.freeimageUrl);
-          setCredits(response.data.credits);
-          loadHistory(email);
-
-          const drawImageId = response.data.drawImageId;
-          const imageUrl = response.data.originalUrl || response.data.freeimageUrl;
-          if (drawImageId && imageUrl) {
-            axios.post('/api/timage/persist', {
-              drawImageId,
-              imageUrl
-            }).then(persistRes => {
-              if (persistRes.data?.success) {
-                setDisplayUrl(persistRes.data.freeimageUrl);
-                setGeneratedUrl(persistRes.data.originalUrl || persistRes.data.freeimageUrl);
-                loadHistory(email);
-              }
-            }).catch(persistErr => {
-              console.error('Failed to persist image:', persistErr);
+          const promises = batchPrompts.map(async (p) => {
+            const res = await axios.post('/api/timage/generate', {
+              prompt: p,
+              size,
+              quality,
+              format,
+              email
             });
+            if (res.data?.success) {
+              return {
+                displayUrl: res.data.freeimageUrl,
+                generatedUrl: res.data.originalUrl || res.data.freeimageUrl
+              };
+            } else {
+              throw new Error(res.data?.error || '生成失败');
+            }
+          });
+
+          const results = await Promise.all(promises);
+          const validResults = results.filter(r => r && r.displayUrl);
+
+          if (validResults.length > 0) {
+            setCurrentSessionOutputs(validResults);
+            setDisplayUrl(validResults[0].displayUrl);
+            setGeneratedUrl(validResults[0].generatedUrl);
+            
+            // Re-fetch remaining credits
+            const lastRes = await axios.post('/api/timage/pre-check', { email });
+            if (lastRes.data?.success) {
+              setCredits(lastRes.data.credits);
+            }
+            
+            setInfoMessage(`🎉 成功批量生成了 ${validResults.length} 张高清旅游大图！请在下方交付物中查收。`);
+            loadHistory(email);
+          }
+        } else {
+          // SINGLE GENERATION FLOW
+          const response = await axios.post('/api/timage/generate', {
+            prompt,
+            size,
+            quality,
+            format,
+            email
+          });
+
+          if (response.data?.success) {
+            const out = {
+              displayUrl: response.data.freeimageUrl,
+              generatedUrl: response.data.originalUrl || response.data.freeimageUrl
+            };
+            setCurrentSessionOutputs([out]);
+            setGeneratedUrl(out.generatedUrl);
+            setDisplayUrl(out.displayUrl);
+            setCredits(response.data.credits);
+            loadHistory(email);
           }
         }
       } else {
-        // Image-to-Image / AI旅拍
+        // Image-to-Image / AI旅拍 (Single image output)
         if (!image1) {
           setErrorMessage('执行图像编辑/AI旅拍至少需要上传一张游客或主体图片！');
           setIsProcessing(false);
@@ -379,29 +430,15 @@ export default function TImage() {
         const response = await axios.post('/api/timage/edit', formData);
 
         if (response.data?.success) {
-          setGeneratedUrl(response.data.originalUrl || response.data.freeimageUrl);
-          setDisplayUrl(response.data.freeimageUrl);
+          const out = {
+            displayUrl: response.data.freeimageUrl,
+            generatedUrl: response.data.originalUrl || response.data.freeimageUrl
+          };
+          setCurrentSessionOutputs([out]);
+          setGeneratedUrl(out.generatedUrl);
+          setDisplayUrl(out.displayUrl);
           setCredits(response.data.credits);
           loadHistory(email);
-
-          const drawImageId = response.data.drawImageId;
-          const imageUrl = response.data.originalUrl || response.data.freeimageUrl;
-          const inputImageUrl = response.data.originalInputB64;
-          if (drawImageId && imageUrl) {
-            axios.post('/api/timage/persist', {
-              drawImageId,
-              imageUrl,
-              inputImageUrl
-            }).then(persistRes => {
-              if (persistRes.data?.success) {
-                setDisplayUrl(persistRes.data.freeimageUrl);
-                setGeneratedUrl(persistRes.data.originalUrl || persistRes.data.freeimageUrl);
-                loadHistory(email);
-              }
-            }).catch(persistErr => {
-              console.error('Failed to persist image:', persistErr);
-            });
-          }
         }
       }
     } catch (error) {
@@ -684,26 +721,64 @@ export default function TImage() {
 
                 {optimizedResults.length > 0 && (
                   <div className="optimized-results-area">
-                    <span className="results-tip">💡 双击或点击下方任一卡片，即可将其直接填入下方指令框中：</span>
+                    <span className="results-tip">💡 点击勾选下方卡片进行多选（勾选 2-3 个即可开启一键并行批量生图）：</span>
                     <div className="optimized-suggestions-grid" style={{ marginTop: '0.5rem' }}>
-                      {optimizedResults.map((item, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setPrompt(item.prompt);
-                          }}
-                          className={`optimized-suggestion-item ${prompt === item.prompt ? 'active' : ''}`}
-                        >
-                          <div className="suggestion-badge">{item.style}</div>
-                          {item.promptZh && (
-                            <div className="suggestion-zh-text" style={{ fontSize: '0.8rem', color: '#2dd4bf', fontWeight: '700', marginTop: '4px', lineHeight: '1.3' }}>
-                              {item.promptZh}
+                      {optimizedResults.map((item, idx) => {
+                        const isSelected = selectedOptimizedIndexes.includes(idx);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              let nextIndexes = [];
+                              if (selectedOptimizedIndexes.includes(idx)) {
+                                nextIndexes = selectedOptimizedIndexes.filter(i => i !== idx);
+                              } else {
+                                nextIndexes = [...selectedOptimizedIndexes, idx];
+                              }
+                              setSelectedOptimizedIndexes(nextIndexes);
+                              // Sync to primary prompt textbox if exactly 1 card is selected
+                              if (nextIndexes.length === 1) {
+                                setPrompt(optimizedResults[nextIndexes[0]].prompt);
+                              } else if (nextIndexes.length === 0) {
+                                setPrompt('');
+                              }
+                            }}
+                            className={`optimized-suggestion-item ${isSelected ? 'active' : ''}`}
+                            style={{ position: 'relative', cursor: 'pointer' }}
+                          >
+                            <div className="suggestion-checkbox" style={{
+                              position: 'absolute',
+                              top: '12px',
+                              right: '12px',
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '4px',
+                              border: '2.5px solid #2dd4bf',
+                              background: isSelected ? '#2dd4bf' : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#0b1120',
+                              fontSize: '11px',
+                              fontWeight: '900',
+                              zIndex: 2,
+                              transition: 'all 0.2s ease'
+                            }}>
+                              {isSelected ? '✓' : ''}
                             </div>
-                          )}
-                          <p className="suggestion-text" style={{ marginTop: '2px', fontSize: '0.7rem', opacity: 0.8 }}>{item.prompt}</p>
-                          <div className="suggestion-action">⚡ 点击一键应用</div>
-                        </div>
-                      ))}
+                            <div className="suggestion-badge" style={{ paddingRight: '22px' }}>{item.style}</div>
+                            {item.promptZh && (
+                              <div className="suggestion-zh-text" style={{ fontSize: '0.8rem', color: '#2dd4bf', fontWeight: '700', marginTop: '6px', lineHeight: '1.3', paddingRight: '12px' }}>
+                                {item.promptZh}
+                              </div>
+                            )}
+                            <p className="suggestion-text" style={{ marginTop: '4px', fontSize: '0.7rem', opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.prompt}</p>
+                            <div className="suggestion-action" style={{ fontSize: '0.75rem', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {isSelected ? '⚡ 已选中一键批量生图' : '➕ 点击加入批量生图'}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -748,7 +823,12 @@ export default function TImage() {
                 disabled={isProcessing}
                 className={`btn-action-generate ${isProcessing ? 'loading' : ''}`}
               >
-                {isProcessing ? '⏳ 正在调遣 AI 绘画引擎渲染中，约需 5-10 秒...' : '🚀 调遣 AI 绘画引擎，开始高保真渲染 (消耗 5 额度)'}
+                {isProcessing 
+                  ? '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...' 
+                  : selectedOptimizedIndexes.length > 1
+                    ? `🚀 开启并行渲染：一次性生成已选的 ${selectedOptimizedIndexes.length} 张图 (总计消耗 ${selectedOptimizedIndexes.length * 5} 额度)`
+                    : '🚀 调遣 AI 绘画引擎，开始高保真渲染 (消耗 5 额度)'
+                }
               </button>
             </div>
 
@@ -757,7 +837,12 @@ export default function TImage() {
               <div className="result-card">
                 <div className="result-header">
                   <h3>🌌 AI 绘画智能视界合并中...</h3>
-                  <p>奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...</p>
+                  <p>
+                    {selectedOptimizedIndexes.length > 1 
+                      ? `正在并行调度多个计算单元进行 ${selectedOptimizedIndexes.length} 幅艺术方案的透镜折射渲染，这可能需要稍长一点的时间...` 
+                      : '奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...'
+                    }
+                  </p>
                 </div>
                 <div className="result-body-loader" style={{ marginTop: '1rem' }}>
                   <SingularityLoader />
@@ -766,22 +851,80 @@ export default function TImage() {
             )}
 
             {/* Results Card */}
-            {displayUrl && !isProcessing && (
+            {currentSessionOutputs.length > 0 && !isProcessing && (
               <div className="result-card">
                 <div className="result-header">
-                  <h3>🎨 AI 智能生成交付物</h3>
+                  <h3>🎨 天工创界 AI 智能生成交付物</h3>
                   <p>大功告成！您可以下载原图或复制永久链接到您的电子路书/网页中</p>
                 </div>
 
                 <div className="result-body">
-                  <div className="result-image-wrapper">
-                    <img src={displayUrl} alt="AI output" className="result-img" />
-                  </div>
-
-                  <div className="result-actions">
-                    <button onClick={handleCopyLink} className="btn-result-action">🔗 复制永久外链 (CDN)</button>
-                    <a href={generatedUrl || displayUrl} target="_blank" rel="noreferrer" className="btn-result-action secondary">👁️ 新窗口查看</a>
-                    <a href={generatedUrl || displayUrl} download={`travel_${Date.now()}.jpg`} className="btn-result-action secondary">💾 保存到本地</a>
+                  <div className="result-images-grid" style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: currentSessionOutputs.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', 
+                    gap: '1.5rem', 
+                    width: '100%',
+                    marginBottom: '1rem' 
+                  }}>
+                    {currentSessionOutputs.map((out, idx) => (
+                      <div key={idx} className="result-item-box" style={{ 
+                        background: 'rgba(15, 23, 42, 0.4)', 
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '16px', 
+                        padding: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px',
+                        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        {currentSessionOutputs.length > 1 && (
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#2dd4bf', 
+                            fontWeight: '600', 
+                            background: 'rgba(45, 212, 191, 0.1)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            alignSelf: 'flex-start' 
+                          }}>
+                            画作方案 {idx + 1}
+                          </span>
+                        )}
+                        <div className="result-image-wrapper" style={{ 
+                          position: 'relative',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          height: currentSessionOutputs.length > 1 ? '340px' : 'auto',
+                          maxHeight: currentSessionOutputs.length > 1 ? 'none' : '600px'
+                        }}>
+                          <img src={out.displayUrl} alt={`AI output ${idx + 1}`} className="result-img" style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: currentSessionOutputs.length > 1 ? 'cover' : 'contain', 
+                            borderRadius: '12px' 
+                          }} />
+                        </div>
+                        <div className="result-actions" style={{ 
+                          display: 'flex', 
+                          gap: '8px', 
+                          flexWrap: 'wrap',
+                          marginTop: 'auto'
+                        }}>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(out.generatedUrl);
+                              alert('已成功复制图片永久链接到剪贴板！');
+                            }} 
+                            className="btn-result-action" 
+                            style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0 }}
+                          >
+                            🔗 复制外链
+                          </button>
+                          <a href={out.generatedUrl} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>👁️ 预览</a>
+                          <a href={out.generatedUrl} download={`travel_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>💾 保存</a>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
