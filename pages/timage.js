@@ -416,7 +416,7 @@ export default function TImage() {
   return (
     <div className="app-container">
       <Head>
-        <title>TImage | 旅游行业 AI 智能生图 Agent</title>
+        <title>天工创界 | 旅游行业 AI 智能生图 Agent</title>
         <meta name="description" content="专为旅游行业客户定制的AI智能营销长图、爆款海报、目的地视觉、酒店民宿氛围与AI旅拍出片系统" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -427,9 +427,9 @@ export default function TImage() {
       <header className="site-header">
         <div className="header-container">
           <div className="logo-section">
-            <span className="logo-icon">🗺️</span>
+            <img src="/timage.png" alt="天工创界 Logo" className="logo-img" />
             <div>
-              <h1 className="logo-title">TImage</h1>
+              <h1 className="logo-title">天工创界</h1>
               <span className="logo-tagline">旅游规划与获客 AI 智绘 Agent</span>
             </div>
           </div>
@@ -900,6 +900,14 @@ export default function TImage() {
         .logo-icon {
           font-size: 2.25rem;
           filter: drop-shadow(0 0 8px rgba(13, 148, 136, 0.5));
+        }
+
+        .logo-img {
+          width: 38px;
+          height: 38px;
+          object-fit: contain;
+          border-radius: 8px;
+          filter: drop-shadow(0 0 8px rgba(13, 148, 136, 0.4));
         }
 
         .logo-title {
