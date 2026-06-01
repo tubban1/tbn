@@ -5,7 +5,8 @@ import { query } from '../../../lib/db';
 import { 
   ensureCreditsTables, 
   saveDrawImagePair, 
-  uploadToFreeimageHost 
+  uploadToFreeimageHost,
+  processAndUploadImageUrl
 } from '../../../lib/image-agent-helpers';
 
 export const config = {
@@ -146,6 +147,51 @@ export default async function handler(req, res) {
     let drawImageId = null;
     let originalInputB64 = null;
 
+    // 1. Upload input image if present synchronously
+    let permanentInputUrl = 'image-edit';
+    let permanentInputDisplayUrl = 'image-edit';
+    if (files && files.length > 0) {
+      originalInputB64 = `data:${files[0].mimetype || 'image/png'};base64,${files[0].buffer.toString('base64')}`;
+      try {
+        console.log(`[TImage Edit] Uploading input image to Freeimage.host synchronously`);
+        const filename = `input_${Date.now()}.png`;
+        const parts = originalInputB64.split(';base64,');
+        const mimeType = parts[0].split(':')[1];
+        const b64Data = parts[1];
+        const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+        permanentInputUrl = uploadResult.url;
+        permanentInputDisplayUrl = uploadResult.displayUrl;
+        console.log(`[TImage Edit] Input image upload success: displayUrl = ${permanentInputDisplayUrl}`);
+      } catch (uploadErr) {
+        console.error('[TImage Edit] Failed to upload input image to Freeimage.host, falling back to base64:', uploadErr.message);
+        permanentInputUrl = originalInputB64;
+        permanentInputDisplayUrl = originalInputB64;
+      }
+    }
+
+    // 2. Upload generated output image synchronously
+    let permanentOutputUrl = freeimageUrl;
+    let permanentDisplayUrl = freeimageUrl;
+    try {
+      console.log(`[TImage Edit] Uploading generated edited image to Freeimage.host synchronously`);
+      const filename = `edited_${Date.now()}.png`;
+      if (freeimageUrl.startsWith('data:')) {
+        const parts = freeimageUrl.split(';base64,');
+        const mimeType = parts[0].split(':')[1];
+        const b64Data = parts[1];
+        const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+        permanentOutputUrl = uploadResult.url;
+        permanentDisplayUrl = uploadResult.displayUrl;
+      } else if (freeimageUrl.startsWith('http')) {
+        const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
+        permanentOutputUrl = uploadResult.url;
+        permanentDisplayUrl = uploadResult.displayUrl;
+      }
+      console.log(`[TImage Edit] Edited output image upload success: displayUrl = ${permanentDisplayUrl}`);
+    } catch (uploadErr) {
+      console.error('[TImage Edit] Failed to upload edited output image to Freeimage.host, falling back to original URL:', uploadErr.message);
+    }
+
     if (email) {
       try {
         finalCredits = currentCredits - CREDITS_PER_IMAGE;
@@ -156,16 +202,8 @@ export default async function handler(req, res) {
         );
         console.log(`[TImage] Deducted 5 credits for image editing. Remaining: ${finalCredits}`);
 
-        let inputImageUrl = 'image-edit';
-        if (files && files.length > 0) {
-          originalInputB64 = `data:${files[0].mimetype || 'image/png'};base64,${files[0].buffer.toString('base64')}`;
-          inputImageUrl = originalInputB64;
-        }
-
-        console.log(`[TImage] Saving temporary edited image record to DB for email: ${email}`);
-        const dbInputUrl = inputImageUrl.startsWith('data:') ? 'temp_placeholder' : inputImageUrl;
-        const dbImageUrl = freeimageUrl.startsWith('data:') ? 'temp_placeholder' : freeimageUrl;
-        const savedImage = await saveDrawImagePair(email, dbInputUrl, dbImageUrl, dbImageUrl, 'edit', prompt);
+        console.log(`[TImage] Saving edited image record to DB for email: ${email}`);
+        const savedImage = await saveDrawImagePair(email, permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, 'edit', prompt);
         drawImageId = savedImage?.id || null;
       } catch (dbErr) {
         console.error('[TImage] Failed to update credits/save edit record to DB:', dbErr.message);
@@ -174,8 +212,8 @@ export default async function handler(req, res) {
 
     return res.json({
       success: true,
-      originalUrl: originalUrl || null,
-      freeimageUrl,
+      originalUrl: permanentOutputUrl,
+      freeimageUrl: permanentDisplayUrl,
       drawImageId,
       originalInputB64,
       model,

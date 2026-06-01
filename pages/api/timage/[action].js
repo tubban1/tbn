@@ -285,6 +285,29 @@ export default async function handler(req, res) {
         throw new Error('Invalid image format returned from VectorEngine');
       }
 
+      // Synchronously upload generated image to Freeimage.host on the server
+      let permanentOutputUrl = freeimageUrl;
+      let permanentDisplayUrl = freeimageUrl;
+      try {
+        console.log(`[TImage] Uploading generated image to Freeimage.host synchronously`);
+        const filename = `generated_${Date.now()}.png`;
+        if (freeimageUrl.startsWith('data:')) {
+          const parts = freeimageUrl.split(';base64,');
+          const mimeType = parts[0].split(':')[1];
+          const b64Data = parts[1];
+          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+          permanentOutputUrl = uploadResult.url;
+          permanentDisplayUrl = uploadResult.displayUrl;
+        } else if (freeimageUrl.startsWith('http')) {
+          const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
+          permanentOutputUrl = uploadResult.url;
+          permanentDisplayUrl = uploadResult.displayUrl;
+        }
+        console.log(`[TImage] Synchronous upload success: displayUrl = ${permanentDisplayUrl}`);
+      } catch (uploadErr) {
+        console.error('[TImage] Failed to upload to Freeimage.host, falling back to original URL:', uploadErr.message);
+      }
+
       let finalCredits = currentCredits;
       let drawImageId = null;
       if (email) {
@@ -297,9 +320,8 @@ export default async function handler(req, res) {
           );
           console.log(`[TImage] Deducted 5 credits for image generation. Remaining: ${finalCredits}`);
 
-          console.log(`[TImage] Saving temporary generated image record to DB for email: ${email}`);
-          const dbImageUrl = freeimageUrl.startsWith('data:') ? 'temp_placeholder' : freeimageUrl;
-          const savedImage = await saveDrawImagePair(email, 'text-to-image', dbImageUrl, dbImageUrl, 'text', prompt);
+          console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
+          const savedImage = await saveDrawImagePair(email, 'text-to-image', permanentOutputUrl, permanentDisplayUrl, 'text', prompt);
           drawImageId = savedImage?.id || null;
         } catch (dbErr) {
           console.error('[TImage] Failed to update credits/save generation record to DB:', dbErr.message);
@@ -308,8 +330,8 @@ export default async function handler(req, res) {
 
       return res.json({
         success: true,
-        originalUrl: originalUrl || null,
-        freeimageUrl,
+        originalUrl: permanentOutputUrl,
+        freeimageUrl: permanentDisplayUrl,
         drawImageId,
         model,
         size,
