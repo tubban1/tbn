@@ -123,9 +123,12 @@ export default async function handler(req, res) {
 你的任务是将用户输入的简单想法，根据具体的旅游物料类别（如海报、行程攻略、风光大片等），改写并生成 3 个不同风格的高清旅游绘图专业提示词。
 每个生成的提示词应当符合以下要求：
 1. 包含丰富的细节描写：目的地风光、光影效果（如 黄金时刻、丁达尔光、电影感照明）、画面氛围（如 浪漫、高奢、唯美空灵）、画质与镜头视角标签。
-2. **排版设计与文案艺术（极其核心 ⚠️）**：如果物料类别包含“海报”、“行程”、“攻略”、“长图”等营销与路书排版属性，你必须在提示词中加入贴合主题的艺术排版、英文文案与版面规划设计！
-   - 例如，必须在英文指令（prompt）中融入类似：\`with elegant minimalist typography text overlay that reads "DISCOVER TAIPEI"\`, \`modern graphic travel poster layout with chic title "ROMANTIC ESCAPE"\`, \`travel editorial design\`, \`bold stylish caption "EXPLORE MORE"\` 等排版标签，确保成图具备高档海报或精致电子路书的书刊设计感，且英文字体渲染清晰美观。
-   - “中文专业提示词(promptZh)”中也要包含对排版格局和文案意境的精美表述。
+2. **排版设计与文案艺术（极其核心 ⚠️）**：如果物料类别包含“海报”、“行程”、“攻略”、“长图”等营销与路书排版属性，你必须在提示词中加入贴合主题的艺术排版、文案设计与版面规划！
+   - **文案语言选择规则**：
+     * **默认且一般情况下**：图中设计并融入的文案汉字应当为**中文汉字**，以契合国内主流旅游营销。例如在英文生图指令（prompt）中融入类似：\`with elegant minimalist typography text that reads "漫步丽江"\`, \`reads "京都之夏"\`, \`reads "海之呼唤"\` 等排版标签，渲染出精美的中文艺术字排版。
+     * **特殊语言对应**：如果用户输入的简单想法中明确提出了其他具体的语种需求，或有明显的外语目的地偏好，则应当生成对应语言的文案（如日文 \`reads "東京旅行"\`，或英文 \`reads "PARIS ESCAPE"\`）。
+   - **排版排布**：加入 \`elegant poster layout\`, \`travel editorial design\`, \`bold stylish graphic layout\` 等排版标签，确保成图具备高档海报或精致电子路书的设计感，且字体渲染清晰美观。
+   - “中文专业提示词(promptZh)”中也要包含对排版格局和中文文案意境的精美表述。
 3. 同时输出对应的“中文专业提示词(promptZh)”和“英文生图指令(prompt)”。“中文专业提示词”应当极具画面感与专业度。
 4. 请以清晰的 JSON 数组格式直接返回，请确保仅返回 JSON，不需要其他解释文字，且格式如下：
 [
