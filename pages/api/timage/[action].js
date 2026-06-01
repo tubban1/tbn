@@ -120,15 +120,16 @@ export default async function handler(req, res) {
       }
 
       const systemPrompt = `你是一位精通 Stable Diffusion / Midjourney 和 GPT-Image 绘图的顶级旅游行业提示词工程大师。
-你的任务是将用户输入的简单想法，改写并生成 3 个不同风格的高清旅游绘图英文提示词。
+你的任务是将用户输入的简单想法，改写并生成 3 个不同风格的高清旅游绘图专业提示词。
 每个生成的提示词应当符合以下要求：
-1. 包含丰富的细节描写：目的地风光、光影效果（如 Golden Hour, Cinematic Light）、画面氛围（如 Romantic, High-end, Ethereal）、画质标签（如 8k, photorealistic, details）。
-2. 使用全英文输出最终提示词(prompt)。
+1. 包含丰富的细节描写：目的地风光、光影效果（如 黄金时刻、丁达尔光、电影感照明）、画面氛围（如 浪漫、高奢、唯美空灵）、画质与镜头视角标签。
+2. 同时输出对应的“中文专业提示词(promptZh)”和“英文生图指令(prompt)”。“中文专业提示词”应当极具画面感与专业度。
 3. 请以清晰的 JSON 数组格式直接返回，请确保仅返回 JSON，不需要其他解释文字，且格式如下：
 [
   {
     "style": "风格名称（如：浪漫日落、复古水彩、现代航拍）",
-    "prompt": "生成的英文提示词"
+    "promptZh": "精美、画面感极强的中文专业提示词",
+    "prompt": "对应的、高度优化的英文生图指令"
   },
   ...
 ]`;
@@ -182,7 +183,7 @@ export default async function handler(req, res) {
         console.error('[TImage Optimize] Failed to parse JSON from AI model response. Content:', content);
         // Fallback if parsing failed: create a simple structure
         optimizedPrompts = [
-          { style: 'AI 经典风格', prompt: content }
+          { style: 'AI 经典风格', promptZh: content, prompt: content }
         ];
       }
 

@@ -695,7 +695,12 @@ export default function TImage() {
                           className={`optimized-suggestion-item ${prompt === item.prompt ? 'active' : ''}`}
                         >
                           <div className="suggestion-badge">{item.style}</div>
-                          <p className="suggestion-text">{item.prompt}</p>
+                          {item.promptZh && (
+                            <div className="suggestion-zh-text" style={{ fontSize: '0.8rem', color: '#2dd4bf', fontWeight: '700', marginTop: '4px', lineHeight: '1.3' }}>
+                              {item.promptZh}
+                            </div>
+                          )}
+                          <p className="suggestion-text" style={{ marginTop: '2px', fontSize: '0.7rem', opacity: 0.8 }}>{item.prompt}</p>
                           <div className="suggestion-action">⚡ 点击一键应用</div>
                         </div>
                       ))}
