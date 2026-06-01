@@ -456,7 +456,7 @@ export default function TImage() {
         <title>天工创界 | 旅游行业 AI 智能生图 Agent</title>
         <meta name="description" content="专为旅游行业客户定制的AI智能营销长图、爆款海报、目的地视觉、酒店民宿氛围与AI旅拍出片系统" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/tg.png" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
