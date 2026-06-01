@@ -105,6 +105,93 @@ export default async function handler(req, res) {
       });
     }
 
+    else if (action === 'optimize-prompt') {
+      const { userPrompt, categoryName } = req.body;
+      if (!userPrompt) {
+        return res.status(400).json({ success: false, error: 'userPrompt is required' });
+      }
+
+      const apiKey = process.env.VECTORENGINE_API_KEY;
+      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+      const promptModel = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
+
+      if (!apiKey) {
+        return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
+      }
+
+      const systemPrompt = `你是一位精通 Stable Diffusion / Midjourney 和 GPT-Image 绘图的顶级旅游行业提示词工程大师。
+你的任务是将用户输入的简单想法，改写并生成 3 个不同风格的高清旅游绘图英文提示词。
+每个生成的提示词应当符合以下要求：
+1. 包含丰富的细节描写：目的地风光、光影效果（如 Golden Hour, Cinematic Light）、画面氛围（如 Romantic, High-end, Ethereal）、画质标签（如 8k, photorealistic, details）。
+2. 使用全英文输出最终提示词(prompt)。
+3. 请以清晰的 JSON 数组格式直接返回，请确保仅返回 JSON，不需要其他解释文字，且格式如下：
+[
+  {
+    "style": "风格名称（如：浪漫日落、复古水彩、现代航拍）",
+    "prompt": "生成的英文提示词"
+  },
+  ...
+]`;
+
+      const userMessage = `用户输入的简单想法是：'${userPrompt}'\n当前旅游物料类别是：'${categoryName || '旅游攻略图'}'`;
+
+      console.log(`[TImage Optimize] Sending prompt optimization request to VectorEngine:`, {
+        model: promptModel,
+        userPrompt: userPrompt.substring(0, 50)
+      });
+
+      const response = await axios.post(
+        `${apiBase}/chat/completions`,
+        {
+          model: promptModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage }
+          ],
+          temperature: 0.8
+        },
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 60000
+        }
+      );
+
+      const content = response.data?.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content returned from AI model');
+      }
+
+      // Try parsing JSON out of model response (handle possible markdown code blocks)
+      let cleanedContent = content.trim();
+      if (cleanedContent.startsWith('```')) {
+        // Remove opening ```json or ```
+        cleanedContent = cleanedContent.replace(/^```[a-zA-Z]*\n/, '');
+        // Remove closing ```
+        cleanedContent = cleanedContent.replace(/\n```$/, '');
+        cleanedContent = cleanedContent.trim();
+      }
+
+      let optimizedPrompts = [];
+      try {
+        optimizedPrompts = JSON.parse(cleanedContent);
+      } catch (parseErr) {
+        console.error('[TImage Optimize] Failed to parse JSON from AI model response. Content:', content);
+        // Fallback if parsing failed: create a simple structure
+        optimizedPrompts = [
+          { style: 'AI 经典风格', prompt: content }
+        ];
+      }
+
+      return res.json({
+        success: true,
+        optimizedPrompts
+      });
+    }
+
     else if (action === 'generate') {
       const { prompt, size, quality, format = 'jpeg', email } = req.body;
 

@@ -128,6 +128,11 @@ export default function TImage() {
   const [generatedUrl, setGeneratedUrl] = useState(null);
   const [displayUrl, setDisplayUrl] = useState(null);
 
+  // Prompt Optimization States
+  const [simpleIdea, setSimpleIdea] = useState('');
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizedResults, setOptimizedResults] = useState([]);
+
   // Email verification state (Simplifed directly calling backend pre-check)
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState('none'); // none | verified
@@ -267,6 +272,34 @@ export default function TImage() {
     if (!generatedUrl) return;
     navigator.clipboard.writeText(generatedUrl);
     alert('已成功复制图片永久链接到剪贴板！');
+  };
+
+  const handleOptimizePrompt = async () => {
+    if (!simpleIdea.trim()) return;
+
+    setIsOptimizing(true);
+    setErrorMessage('');
+    setInfoMessage('');
+    
+    try {
+      const categoryName = selectedType ? selectedType.name : '旅游攻略图';
+      const response = await axios.post('/api/timage/optimize-prompt', {
+        userPrompt: simpleIdea,
+        categoryName
+      });
+
+      if (response.data && response.data.success) {
+        setOptimizedResults(response.data.optimizedPrompts || []);
+        setInfoMessage('🪄 Gemini 成功为您改写并润色了 3 款不同风格的绝美指令！请点击任意一款直接应用。');
+      } else {
+        setErrorMessage(response.data.error || '提示词优化失败');
+      }
+    } catch (err) {
+      console.error('Failed to optimize prompt:', err);
+      setErrorMessage(err.response?.data?.error || err.message || '网络请求错误，请稍后再试');
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   // Generate Image Action
@@ -621,6 +654,55 @@ export default function TImage() {
                   </div>
                 </div>
               )}
+
+              {/* Gemini Prompt Optimizer Box */}
+              <div className="prompt-optimizer-card">
+                <label className="optimizer-label">🪄 Gemini 智能提示词优化 (用简单想法生成多个英文大片指令)</label>
+                <div className="optimizer-input-group">
+                  <input
+                    type="text"
+                    value={simpleIdea}
+                    onChange={(e) => setSimpleIdea(e.target.value)}
+                    placeholder="输入您的简单构想，如：'绝美海滩日落、浪漫旅拍情侣'..."
+                    className="optimizer-input-field"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleOptimizePrompt();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleOptimizePrompt}
+                    disabled={isOptimizing || !simpleIdea.trim()}
+                    className="btn-optimizer-action"
+                  >
+                    {isOptimizing ? '✨ 智能改写中...' : '🪄 Gemini 优化'}
+                  </button>
+                </div>
+
+                {optimizedResults.length > 0 && (
+                  <div className="optimized-results-area">
+                    <span className="results-tip">💡 双击或点击下方任一卡片，即可将其直接填入下方指令框中：</span>
+                    <div className="optimized-suggestions-grid" style={{ marginTop: '0.5rem' }}>
+                      {optimizedResults.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setPrompt(item.prompt);
+                          }}
+                          className={`optimized-suggestion-item ${prompt === item.prompt ? 'active' : ''}`}
+                        >
+                          <div className="suggestion-badge">{item.style}</div>
+                          <p className="suggestion-text">{item.prompt}</p>
+                          <div className="suggestion-action">⚡ 点击一键应用</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Custom Prompt Box */}
               <div className="prompt-area">
@@ -1335,6 +1417,153 @@ export default function TImage() {
 
         .btn-remove:hover {
           background: rgba(239, 68, 68, 0.8);
+        }
+
+        /* Prompt Optimizer Card */
+        .prompt-optimizer-card {
+          background-color: rgba(13, 148, 136, 0.04);
+          border: 1px dashed rgba(13, 148, 136, 0.3);
+          border-radius: 12px;
+          padding: 1.25rem;
+          margin-bottom: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          transition: all 0.3s ease;
+        }
+
+        .prompt-optimizer-card:hover {
+          border-color: rgba(13, 148, 136, 0.6);
+          background-color: rgba(13, 148, 136, 0.06);
+        }
+
+        .optimizer-label {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--color-primary);
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .optimizer-input-group {
+          display: flex;
+          gap: 0.75rem;
+        }
+
+        .optimizer-input-field {
+          flex: 1;
+          background-color: rgba(15, 23, 42, 0.6);
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          padding: 0.65rem 0.85rem;
+          color: var(--color-text-main);
+          font-size: 0.85rem;
+          transition: all 0.3s ease;
+        }
+
+        .optimizer-input-field:focus {
+          outline: none;
+          border-color: var(--color-primary);
+        }
+
+        .btn-optimizer-action {
+          background-color: var(--color-primary);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 0.65rem 1.25rem;
+          font-weight: 600;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+
+        .btn-optimizer-action:hover:not(:disabled) {
+          background-color: var(--color-primary-hover);
+          transform: translateY(-1px);
+        }
+
+        .btn-optimizer-action:disabled {
+          background-color: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.25);
+          cursor: not-allowed;
+        }
+
+        .optimized-results-area {
+          margin-top: 0.5rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding-top: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .results-tip {
+          font-size: 0.7rem;
+          color: var(--color-text-muted);
+        }
+
+        .optimized-suggestions-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 0.75rem;
+        }
+
+        .optimized-suggestion-item {
+          background-color: rgba(15, 23, 42, 0.5);
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          padding: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .optimized-suggestion-item:hover {
+          background-color: rgba(15, 23, 42, 0.8);
+          border-color: var(--color-primary);
+          transform: translateY(-2px);
+        }
+
+        .optimized-suggestion-item.active {
+          border-color: var(--color-primary);
+          background: rgba(13, 148, 136, 0.08);
+          box-shadow: 0 0 10px rgba(13, 148, 136, 0.2);
+        }
+
+        .suggestion-badge {
+          background: rgba(13, 148, 136, 0.15);
+          color: #2dd4bf;
+          font-size: 0.65rem;
+          font-weight: 700;
+          padding: 0.15rem 0.4rem;
+          border-radius: 4px;
+          align-self: flex-start;
+        }
+
+        .suggestion-text {
+          font-size: 0.75rem;
+          color: #e2e8f0;
+          line-height: 1.4;
+          margin: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          height: 4.2em;
+        }
+
+        .suggestion-action {
+          font-size: 0.65rem;
+          color: var(--color-primary);
+          font-weight: 600;
+          margin-top: auto;
+          text-align: right;
         }
 
         /* Prompt Box Styling */
