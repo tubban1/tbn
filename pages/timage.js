@@ -140,6 +140,7 @@ export default function TImage() {
   const [emailStatus, setEmailStatus] = useState('none'); // none | verified
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
 
   // History gallery states
   const [historyList, setHistoryList] = useState([]);
@@ -329,12 +330,12 @@ export default function TImage() {
     if (isBatchMode) {
       const totalCreditsNeeded = selectedOptimizedIndexes.length * 5;
       if (credits < totalCreditsNeeded) {
-        setErrorMessage(`额度不足！批量生成 ${selectedOptimizedIndexes.length} 张图需要 ${totalCreditsNeeded} 额度，当前仅剩 ${credits} 额度。`);
+        setErrorMessage(`额度不足！批量生成 ${selectedOptimizedIndexes.length} 张图需要 ${totalCreditsNeeded} 额度，当前仅剩 ${credits} 额度。请点击右上角“充值请联系”扫码充值！`);
         return;
       }
     } else {
       if (credits < 5) {
-        setErrorMessage('额度不足！请点击右上方按钮充值额度。');
+        setErrorMessage('额度不足！请点击右上角“充值请联系”按钮扫码获取充值额度。');
         return;
       }
       if (!prompt) {
@@ -492,7 +493,7 @@ export default function TImage() {
               <div className="user-badge">
                 <span className="user-email">✉️ {email}</span>
                 <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
-                <button onClick={handleRecharge} className="btn-recharge">⚡ 申请额度</button>
+                <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
                 <button onClick={handleLogout} className="btn-logout">退出</button>
               </div>
             ) : (
@@ -857,6 +858,14 @@ export default function TImage() {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.6; }
               }
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes scaleUp {
+                from { transform: scale(0.9) translateY(10px); opacity: 0; }
+                to { transform: scale(1) translateY(0); opacity: 1; }
+              }
             `}</style>
 
             {/* Loading Animation Card (Always active during processing to showcase the brand's WebGL Singularity) */}
@@ -1056,6 +1065,124 @@ export default function TImage() {
           </section>
         )}
       </main>
+
+      {/* Recharge Modal with QR code */}
+      {showRechargeModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(11, 17, 32, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          animation: 'fadeIn 0.25s ease-out'
+        }} onClick={() => setShowRechargeModal(false)}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(20, 30, 55, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
+            border: '1px solid rgba(45, 212, 191, 0.3)',
+            borderRadius: '24px',
+            padding: '36px 32px',
+            maxWidth: '380px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 50px rgba(45, 212, 191, 0.15)',
+            position: 'relative',
+            animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowRechargeModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: 'none',
+                color: '#94a3b8',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+                transition: 'all 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.currentTarget.style.color = '#94a3b8';
+              }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{
+              fontSize: '1.35rem',
+              color: '#fff',
+              fontWeight: '700',
+              marginBottom: '8px',
+              fontFamily: 'Outfit, sans-serif',
+              letterSpacing: '0.05em'
+            }}>
+              ⚡ 尊贵会员充值中心
+            </h3>
+            <p style={{
+              fontSize: '0.85rem',
+              color: 'rgba(248, 250, 252, 0.6)',
+              marginBottom: '28px',
+              lineHeight: '1.5'
+            }}>
+              微信扫码联系专属客服，<br />即刻到账海量算力额度！
+            </p>
+
+            <div style={{
+              background: '#fff',
+              padding: '16px',
+              borderRadius: '20px',
+              display: 'inline-block',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+              marginBottom: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <img 
+                src="/contact.png" 
+                alt="充值二维码" 
+                style={{
+                  width: '210px',
+                  height: '210px',
+                  display: 'block',
+                  borderRadius: '12px'
+                }} 
+              />
+            </div>
+
+            <div style={{
+              fontSize: '0.75rem',
+              color: '#2dd4bf',
+              fontWeight: '600',
+              background: 'rgba(45, 212, 191, 0.08)',
+              border: '1px solid rgba(45, 212, 191, 0.2)',
+              padding: '8px 18px',
+              borderRadius: '30px',
+              display: 'inline-block',
+              letterSpacing: '0.05em'
+            }}>
+              🔒 官方安全渠道 · 实时人工客服支援
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Styled JSX (Next.js Built-in scoped CSS compiler) */}
       <style jsx global>{`
