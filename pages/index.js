@@ -16,7 +16,7 @@ export default function Home() {
       <Head>
         <title>祝福卡片系统</title>
         <meta name="description" content="创建和分享个性化祝福卡片" />
-        <link rel="icon" type="image/png" href="/tg.png" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main className={styles.main}>
