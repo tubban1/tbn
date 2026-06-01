@@ -859,12 +859,22 @@ export default function TImage() {
               }
             `}</style>
 
-            {/* Loading Animation Card (Only for single image generation) */}
-            {isProcessing && !(activeTab === 'text' && selectedOptimizedIndexes.length > 1) && (
-              <div className="result-card">
+            {/* Loading Animation Card (Always active during processing to showcase the brand's WebGL Singularity) */}
+            {isProcessing && (
+              <div className="result-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="result-header">
-                  <h3>🌌 AI 绘画智能视界合并中...</h3>
-                  <p>奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...</p>
+                  <h3>
+                    {activeTab === 'text' && selectedOptimizedIndexes.length > 1
+                      ? '🌌 天工创界 AI 并行奇点合并中...'
+                      : '🌌 AI 绘画智能视界合并中...'
+                    }
+                  </h3>
+                  <p>
+                    {activeTab === 'text' && selectedOptimizedIndexes.length > 1
+                      ? `多线程并发调度中... 已交付 (${currentSessionOutputs.filter(Boolean).length}/${currentSessionOutputs.length}) 幅艺术大片，奇点引力透镜正在加速折射其余方案...`
+                      : '奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...'
+                    }
+                  </p>
                 </div>
                 <div className="result-body-loader" style={{ marginTop: '1rem' }}>
                   <SingularityLoader />
