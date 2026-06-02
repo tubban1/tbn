@@ -10,8 +10,7 @@ const SingularityLoader = dynamic(() => import('../components/SingularityLoader'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function TImage() {
-  const [activeTab, setActiveTab] = useState('text');
-
+  // Removed activeTab since UI is unified
   // Pre-configured travel types
   const travelCategories = [
     {
@@ -325,7 +324,7 @@ export default function TImage() {
     }
 
     // Determine if batch mode is active
-    const isBatchMode = activeTab === 'text' && selectedOptimizedIndexes.length > 1;
+    const isBatchMode = !image1 && selectedOptimizedIndexes.length > 1;
 
     if (isBatchMode) {
       const totalCreditsNeeded = selectedOptimizedIndexes.length * 5;
@@ -347,7 +346,7 @@ export default function TImage() {
     setIsProcessing(true);
 
     try {
-      if (activeTab === 'text') {
+      if (!image1) {
         if (isBatchMode) {
           // BATCH GENERATION FLOW
           const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].prompt);
@@ -473,7 +472,8 @@ export default function TImage() {
         <title>天工创界 | 旅游行业 AI 智能生图 Agent</title>
         <meta name="description" content="专为旅游行业客户定制的AI智能营销长图、爆款海报、目的地视觉、酒店民宿氛围与AI旅拍出片系统" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/tg-192.png" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
@@ -632,93 +632,72 @@ export default function TImage() {
 
             {/* Mode & Prompt Card */}
             <div className="workspace-card">
-              {/* Tab Selector */}
-              <div className="mode-tabs">
-                <button
-                  onClick={() => { setActiveTab('text'); setGeneratedUrl(null); setDisplayUrl(null); }}
-                  className={`mode-tab ${activeTab === 'text' ? 'active' : ''}`}
-                >
-                  ✨ 文本智能生成 (Text-to-Image)
-                </button>
-                <button
-                  onClick={() => { setActiveTab('image'); setGeneratedUrl(null); setDisplayUrl(null); }}
-                  className={`mode-tab ${activeTab === 'image' ? 'active' : ''}`}
-                >
-                  📸 图像智能编辑 / AI旅拍出片 (Image-to-Image)
-                </button>
-              </div>
-
               {/* Error / Alert Display */}
               {errorMessage && <div className="alert alert-error">⚠️ {errorMessage}</div>}
               {infoMessage && <div className="alert alert-info">💡 {infoMessage}</div>}
 
-              {/* Uploads Zone (Visible only in Image tab) */}
-              {activeTab === 'image' && (
-                <div className="upload-wrapper">
-                  <div className="upload-box-container">
-                    <div
-                      onClick={() => fileInputRef1.current.click()}
-                      className="upload-dropzone"
-                    >
-                      <input
-                        type="file"
-                        ref={fileInputRef1}
-                        onChange={(e) => handleFileChange(e, 1)}
-                        style={{ display: 'none' }}
-                        accept="image/*"
-                      />
-                      {image1Preview ? (
-                        <div className="preview-holder">
-                          <img src={image1Preview} alt="Image 1" />
-                          <button onClick={(e) => { e.stopPropagation(); removeImage(1); }} className="btn-remove">✕</button>
-                        </div>
-                      ) : (
-                        <div className="upload-placeholder">
-                          <span className="upload-icon">🧑‍💼</span>
-                          <span className="upload-text">上传游客人像 / 初始底图</span>
-                          <span className="upload-tip">用于人物无缝合成绝美背景 (AI旅拍必备)</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      onClick={() => fileInputRef2.current.click()}
-                      className="upload-dropzone"
-                    >
-                      <input
-                        type="file"
-                        ref={fileInputRef2}
-                        onChange={(e) => handleFileChange(e, 2)}
-                        style={{ display: 'none' }}
-                        accept="image/*"
-                      />
-                      {image2Preview ? (
-                        <div className="preview-holder">
-                          <img src={image2Preview} alt="Image 2" />
-                          <button onClick={(e) => { e.stopPropagation(); removeImage(2); }} className="btn-remove">✕</button>
-                        </div>
-                      ) : (
-                        <div className="upload-placeholder">
-                          <span className="upload-icon">🎨</span>
-                          <span className="upload-text">上传手绘草图 / 参考构图图 (可选)</span>
-                          <span className="upload-tip">精准控制构图、元素分布或线稿结构</span>
-                        </div>
-                      )}
-                    </div>
+              {/* Gemini Prompt Optimizer Box (Unified Upload + Text Input) */}
+              <div className="prompt-optimizer-card" style={{ position: 'relative' }}>
+                <label className="optimizer-label">🪄 智能核心引擎 (输入构想，或点击 📎 附上参考图/文档)</label>
+                
+                {/* Unified Uploads Preview Zone */}
+                {(image1Preview || image2Preview) && (
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    {image1Preview && (
+                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                        <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => removeImage(1)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    )}
+                    {image2Preview && (
+                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                        <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => removeImage(2)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Gemini Prompt Optimizer Box */}
-              <div className="prompt-optimizer-card">
-                <label className="optimizer-label">🪄 Gemini 智能提示词优化 (用简单想法生成多个英文大片指令)</label>
-                <div className="optimizer-input-group">
+                <div className="optimizer-input-group" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  
+                  {/* Hidden File Inputs */}
+                  <input type="file" ref={fileInputRef1} onChange={(e) => handleFileChange(e, 1)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
+                  <input type="file" ref={fileInputRef2} onChange={(e) => handleFileChange(e, 2)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
+
+                  {/* Attachment Paperclip Button */}
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!image1Preview) fileInputRef1.current.click();
+                      else if (!image2Preview) fileInputRef2.current.click();
+                      else alert('最多只能同时上传两个参考文件！');
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      fontSize: '1.2rem',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      transition: 'color 0.2s',
+                      padding: '4px'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#2dd4bf'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+                    title="上传参考图或文档"
+                  >
+                    📎
+                  </button>
+
                   <input
                     type="text"
                     value={simpleIdea}
                     onChange={(e) => setSimpleIdea(e.target.value)}
-                    placeholder="输入您的简单构想，如：'绝美海滩日落、浪漫旅拍情侣'..."
+                    placeholder="输入您的简单构想，或点击左侧 📎 附上参考图/文档..."
                     className="optimizer-input-field"
+                    style={{ paddingLeft: '44px' }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -729,10 +708,10 @@ export default function TImage() {
                   <button
                     type="button"
                     onClick={handleOptimizePrompt}
-                    disabled={isOptimizing || !simpleIdea.trim()}
+                    disabled={isOptimizing || (!simpleIdea.trim() && !image1Preview)}
                     className="btn-optimizer-action"
                   >
-                    {isOptimizing ? '✨ 智能改写中...' : '🪄 Gemini 优化'}
+                    {isOptimizing ? '✨ 智能处理中...' : '🪄 AI 处理'}
                   </button>
                 </div>
 
@@ -873,13 +852,13 @@ export default function TImage() {
               <div className="result-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="result-header">
                   <h3>
-                    {activeTab === 'text' && selectedOptimizedIndexes.length > 1
+                    {!image1 && selectedOptimizedIndexes.length > 1
                       ? '🌌 天工创界 AI 并行奇点合并中...'
                       : '🌌 AI 绘画智能视界合并中...'
                     }
                   </h3>
                   <p>
-                    {activeTab === 'text' && selectedOptimizedIndexes.length > 1
+                    {!image1 && selectedOptimizedIndexes.length > 1
                       ? `多线程并发调度中... 已交付 (${currentSessionOutputs.filter(Boolean).length}/${currentSessionOutputs.length}) 幅艺术大片，奇点引力透镜正在加速折射其余方案...`
                       : '奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...'
                     }
