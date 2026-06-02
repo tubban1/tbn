@@ -636,68 +636,16 @@ export default function TImage() {
               {errorMessage && <div className="alert alert-error">⚠️ {errorMessage}</div>}
               {infoMessage && <div className="alert alert-info">💡 {infoMessage}</div>}
 
-              {/* Gemini Prompt Optimizer Box (Unified Upload + Text Input) */}
-              <div className="prompt-optimizer-card" style={{ position: 'relative' }}>
-                <label className="optimizer-label">🪄 智能核心引擎 (输入构想，或点击 📎 附上参考图/文档)</label>
-                
-                {/* Unified Uploads Preview Zone */}
-                {(image1Preview || image2Preview) && (
-                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                    {image1Preview && (
-                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
-                        <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={() => removeImage(1)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
-                      </div>
-                    )}
-                    {image2Preview && (
-                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
-                        <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={() => removeImage(2)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="optimizer-input-group" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  
-                  {/* Hidden File Inputs */}
-                  <input type="file" ref={fileInputRef1} onChange={(e) => handleFileChange(e, 1)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
-                  <input type="file" ref={fileInputRef2} onChange={(e) => handleFileChange(e, 2)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
-
-                  {/* Attachment Paperclip Button */}
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      if (!image1Preview) fileInputRef1.current.click();
-                      else if (!image2Preview) fileInputRef2.current.click();
-                      else alert('最多只能同时上传两个参考文件！');
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#94a3b8',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer',
-                      zIndex: 10,
-                      transition: 'color 0.2s',
-                      padding: '4px'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#2dd4bf'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-                    title="上传参考图或文档"
-                  >
-                    📎
-                  </button>
-
+              {/* Gemini Prompt Optimizer Box */}
+              <div className="prompt-optimizer-card">
+                <label className="optimizer-label">🪄 Gemini 智能提示词优化 (用简单想法生成多个英文大片指令)</label>
+                <div className="optimizer-input-group">
                   <input
                     type="text"
                     value={simpleIdea}
                     onChange={(e) => setSimpleIdea(e.target.value)}
-                    placeholder="输入您的简单构想，或点击左侧 📎 附上参考图/文档..."
+                    placeholder="输入您的简单构想，如：'绝美海滩日落、浪漫旅拍情侣'..."
                     className="optimizer-input-field"
-                    style={{ paddingLeft: '44px' }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -708,10 +656,10 @@ export default function TImage() {
                   <button
                     type="button"
                     onClick={handleOptimizePrompt}
-                    disabled={isOptimizing || (!simpleIdea.trim() && !image1Preview)}
+                    disabled={isOptimizing || !simpleIdea.trim()}
                     className="btn-optimizer-action"
                   >
-                    {isOptimizing ? '✨ 智能处理中...' : '🪄 AI 处理'}
+                    {isOptimizing ? '✨ 智能改写中...' : '🪄 Gemini 优化'}
                   </button>
                 </div>
 
@@ -780,15 +728,70 @@ export default function TImage() {
                 )}
               </div>
 
-              {/* Custom Prompt Box */}
-              <div className="prompt-area">
-                <label>📝 绘画引擎指令 Prompts (已为您调谐最优质的旅游渲染指令，您也可手动修改)</label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="prompt-textarea"
-                  rows={4}
-                />
+              {/* Custom Prompt Box (Unified Upload + Text Input) */}
+              <div className="prompt-area" style={{ position: 'relative' }}>
+                <label>📝 绘画引擎指令 Prompts (您可以手动输入，或点击 📎 附上参考图/文档)</label>
+
+                {/* Unified Uploads Preview Zone */}
+                {(image1Preview || image2Preview) && (
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    {image1Preview && (
+                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                        <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => removeImage(1)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    )}
+                    {image2Preview && (
+                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                        <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => removeImage(2)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ position: 'relative' }}>
+                  {/* Hidden File Inputs */}
+                  <input type="file" ref={fileInputRef1} onChange={(e) => handleFileChange(e, 1)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
+                  <input type="file" ref={fileInputRef2} onChange={(e) => handleFileChange(e, 2)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
+
+                  {/* Attachment Paperclip Button */}
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!image1Preview) fileInputRef1.current.click();
+                      else if (!image2Preview) fileInputRef2.current.click();
+                      else alert('最多只能同时上传两个参考文件！');
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      fontSize: '1.2rem',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      transition: 'color 0.2s',
+                      padding: '4px'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#2dd4bf'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+                    title="上传参考图或文档"
+                  >
+                    📎
+                  </button>
+
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="prompt-textarea"
+                    placeholder="在此粘贴或修改绘画指令..."
+                    rows={4}
+                    style={{ paddingLeft: '44px' }}
+                  />
+                </div>
               </div>
 
               {/* Extra Parameters */}
