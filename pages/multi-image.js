@@ -1,0 +1,263 @@
+import { useEffect, useState, useRef } from 'react';
+import Head from 'next/head';
+import axios from 'axios';
+import dynamic from 'next/dynamic';
+
+const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
+  ssr: false
+});
+
+const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'), {
+  ssr: false
+});
+
+export default function MultiImage() {
+  const [copyText, setCopyText] = useState('');
+  const [baseImage, setBaseImage] = useState(null);
+  const [baseImagePreview, setBaseImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [scenes, setScenes] = useState([]);
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [results, setResults] = useState([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  
+  const [editingImageIdx, setEditingImageIdx] = useState(false);
+
+  // Parse long text into scenes
+  const handleExtractScenes = async () => {
+    if (!copyText.trim()) {
+      setErrorMessage('请输入长文案或文档内容！');
+      return;
+    }
+    setIsExtracting(true);
+    setErrorMessage('');
+    
+    try {
+      // We will create a new endpoint /api/timage/extract-scenes
+      const response = await axios.post('/api/timage/extract-scenes', { text: copyText });
+      if (response.data?.success) {
+        setScenes(response.data.scenes);
+        setInfoMessage(`成功解析出 ${response.data.scenes.length} 个分镜画面！`);
+      } else {
+        setErrorMessage(response.data?.error || '解析失败');
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || '网络错误，无法解析文案');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleGenerateAll = async () => {
+    if (scenes.length === 0) return;
+    
+    setIsGenerating(true);
+    setErrorMessage('');
+    setInfoMessage('');
+    
+    // Initialize results with placeholders
+    setResults(new Array(scenes.length).fill(null));
+    
+    const promises = scenes.map(async (scene, idx) => {
+      try {
+        if (baseImage) {
+          // Mode 2: Base image + local modify (Image-to-Image)
+          const formData = new FormData();
+          formData.append('prompt', scene.prompt);
+          formData.append('size', '1024x1024'); // default
+          formData.append('image', baseImage);
+          
+          const res = await axios.post('/api/timage/edit', formData);
+          if (res.data?.success) {
+            updateResult(idx, res.data.freeimageUrl);
+          } else {
+            updateResult(idx, 'error');
+          }
+        } else {
+          // Mode 1: Text to Image
+          const res = await axios.post('/api/timage/generate', {
+            prompt: scene.prompt,
+            size: '1024x1024'
+          });
+          if (res.data?.success) {
+            updateResult(idx, res.data.freeimageUrl);
+          } else {
+            updateResult(idx, 'error');
+          }
+        }
+      } catch (err) {
+        updateResult(idx, 'error');
+      }
+    });
+
+    await Promise.all(promises);
+    setIsGenerating(false);
+    setInfoMessage('✅ 批量生成完毕！');
+  };
+
+  const updateResult = (idx, url) => {
+    setResults(prev => {
+      const newRes = [...prev];
+      newRes[idx] = url;
+      return newRes;
+    });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setBaseImage(file);
+      setBaseImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setBaseImage(null);
+    setBaseImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div className="app-container">
+      <Head>
+        <title>天工创界 | 智能分镜批量多图生成</title>
+      </Head>
+
+      <div className="header">
+        <h1 className="title">📚 长文案/参考图 批量生图引擎</h1>
+        <p className="subtitle">自动理解超长文案并提取分镜，结合基础参考图实现批量局部修改与重绘</p>
+      </div>
+
+      <div className="main-content">
+        <div className="card">
+          <h3>1. 输入您的长文案 / 故事文档</h3>
+          <textarea 
+            value={copyText} 
+            onChange={e => setCopyText(e.target.value)}
+            placeholder="粘贴您的公众号推文、小红书长笔记或小说故事..."
+            rows={6}
+            className="input-textarea"
+          />
+          
+          <div className="upload-section">
+            <h3>2. (可选) 上传基础参考图</h3>
+            <p className="hint">如果上传了参考图，AI将以该图为基础，结合分镜文案进行局部修改和演化生图。</p>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept="image/*" />
+            
+            {!baseImagePreview ? (
+              <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传基础参考图</button>
+            ) : (
+              <div className="preview-container">
+                <img src={baseImagePreview} alt="Base" onClick={() => setEditingImageIdx(true)} className="preview-img" />
+                <button onClick={removeImage} className="btn-remove">✕</button>
+                <span className="preview-hint">点击图片进行画笔标记</span>
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleExtractScenes} disabled={isExtracting} className="btn-primary">
+            {isExtracting ? '⏳ 正在让AI深度阅读并提取分镜...' : '🪄 第一步：智能解析文案分镜'}
+          </button>
+          
+          {errorMessage && <div className="alert error">{errorMessage}</div>}
+          {infoMessage && <div className="alert info">{infoMessage}</div>}
+        </div>
+
+        {scenes.length > 0 && (
+          <div className="card scenes-card">
+            <h3>解析出的分镜画面 ({scenes.length}幕)</h3>
+            <div className="scenes-grid">
+              {scenes.map((scene, idx) => (
+                <div key={idx} className="scene-item">
+                  <div className="scene-num">Scene {idx + 1}</div>
+                  <div className="scene-desc">{scene.description}</div>
+                  <div className="scene-prompt">{scene.prompt}</div>
+                </div>
+              ))}
+            </div>
+            
+            <button onClick={handleGenerateAll} disabled={isGenerating} className="btn-generate">
+              {isGenerating ? '🌌 正在并行渲染所有分镜...' : `🚀 第二步：一键生成所有 ${scenes.length} 张大图`}
+            </button>
+          </div>
+        )}
+
+        {(results.length > 0 || isGenerating) && (
+          <div className="card results-card">
+            <h3>生成结果集</h3>
+            <div className="results-grid">
+              {results.map((res, idx) => (
+                <div key={idx} className="result-item">
+                  <div className="result-header">镜头 {idx + 1}</div>
+                  {res === null ? (
+                    <div className="result-loading">
+                       <SingularityLoader />
+                    </div>
+                  ) : res === 'error' ? (
+                    <div className="result-error">生成失败</div>
+                  ) : (
+                    <img src={res} alt={`Result ${idx}`} className="result-img" />
+                  )}
+                  {scenes[idx] && <p className="result-desc">{scenes[idx].description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ImageMarkupModal 
+        isOpen={editingImageIdx}
+        onClose={() => setEditingImageIdx(false)}
+        imageUrl={baseImagePreview}
+        onSave={(file, previewUrl) => {
+          setBaseImage(file);
+          setBaseImagePreview(previewUrl);
+          setEditingImageIdx(false);
+        }}
+      />
+
+      <style jsx>{`
+        .app-container { max-width: 1200px; margin: 0 auto; padding: 2rem; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .title { font-size: 2rem; background: linear-gradient(to right, #2dd4bf, #3b82f6); -webkit-background-clip: text; color: transparent; }
+        .subtitle { color: #94a3b8; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .input-textarea { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 1rem; border-radius: 8px; resize: vertical; }
+        .upload-section { margin: 1.5rem 0; border-top: 1px solid #334155; padding-top: 1.5rem; }
+        .hint { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem; }
+        .btn-upload { background: #334155; border: 1px dashed #475569; color: #e2e8f0; padding: 1rem 2rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-upload:hover { border-color: #2dd4bf; color: #2dd4bf; }
+        .preview-container { position: relative; width: 150px; height: 150px; border-radius: 8px; overflow: hidden; border: 2px solid #2dd4bf; }
+        .preview-img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; transition: transform 0.2s; }
+        .preview-img:hover { transform: scale(1.05); }
+        .btn-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; }
+        .preview-hint { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; font-size: 0.7rem; text-align: center; padding: 4px; pointer-events: none; }
+        .btn-primary { width: 100%; background: linear-gradient(135deg, #0f766e, #0d9488); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+        .btn-primary:hover { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+        .btn-generate { width: 100%; background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 1.5rem; }
+        .btn-generate:hover { background: linear-gradient(135deg, #4338ca, #2563eb); }
+        .alert { padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+        .alert.error { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #fca5a5; }
+        .alert.info { background: rgba(45, 212, 191, 0.1); border: 1px solid #2dd4bf; color: #5eead4; }
+        .scenes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .scene-item { background: #0f172a; border: 1px solid #334155; padding: 1rem; border-radius: 8px; }
+        .scene-num { font-weight: bold; color: #2dd4bf; margin-bottom: 0.5rem; }
+        .scene-desc { font-size: 0.9rem; margin-bottom: 0.5rem; color: #e2e8f0; }
+        .scene-prompt { font-size: 0.75rem; color: #94a3b8; font-family: monospace; word-break: break-all; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .result-item { background: #0f172a; border-radius: 12px; overflow: hidden; border: 1px solid #334155; display: flex; flex-direction: column; }
+        .result-header { padding: 0.5rem 1rem; background: #1e293b; font-weight: bold; font-size: 0.9rem; color: #cbd5e1; border-bottom: 1px solid #334155; }
+        .result-loading { height: 250px; display: flex; align-items: center; justify-content: center; }
+        .result-error { height: 250px; display: flex; align-items: center; justify-content: center; color: #ef4444; }
+        .result-img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
+        .result-desc { padding: 1rem; font-size: 0.85rem; color: #94a3b8; margin: 0; background: #1e293b; }
+      `}</style>
+    </div>
+  );
+}
