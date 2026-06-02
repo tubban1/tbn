@@ -7,6 +7,10 @@ const SingularityLoader = dynamic(() => import('../components/SingularityLoader'
   ssr: false
 });
 
+const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'), {
+  ssr: false
+});
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function TImage() {
@@ -119,6 +123,9 @@ export default function TImage() {
   const [image1Preview, setImage1Preview] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image2Preview, setImage2Preview] = useState(null);
+
+  // Image Editor States
+  const [editingImageIdx, setEditingImageIdx] = useState(null); // null, 1, or 2
 
   // Status & loading states
   const [isProcessing, setIsProcessing] = useState(false);
@@ -736,21 +743,33 @@ export default function TImage() {
                 {(image1Preview || image2Preview) && (
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                     {image1Preview && (
-                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                      <div 
+                        onClick={() => setEditingImageIdx(1)}
+                        style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        title="点击展开编辑/标记"
+                      >
                         <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={() => removeImage(1)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeImage(1); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
                       </div>
                     )}
                     {image2Preview && (
-                      <div style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)' }}>
+                      <div 
+                        onClick={() => setEditingImageIdx(2)}
+                        style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        title="点击展开编辑/标记"
+                      >
                         <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={() => removeImage(2)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeImage(2); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
                       </div>
                     )}
                   </div>
                 )}
 
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', width: '100%' }}>
                   {/* Hidden File Inputs */}
                   <input type="file" ref={fileInputRef1} onChange={(e) => handleFileChange(e, 1)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
                   <input type="file" ref={fileInputRef2} onChange={(e) => handleFileChange(e, 2)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
@@ -1938,6 +1957,8 @@ export default function TImage() {
           line-height: 1.5;
           resize: vertical;
           transition: border-color 0.3s ease;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .prompt-textarea:focus {
@@ -2251,6 +2272,23 @@ export default function TImage() {
           }
         }
       `}</style>
+      
+      {/* Image Markup Modal */}
+      <ImageMarkupModal 
+        isOpen={editingImageIdx !== null}
+        onClose={() => setEditingImageIdx(null)}
+        imageUrl={editingImageIdx === 1 ? image1Preview : (editingImageIdx === 2 ? image2Preview : null)}
+        onSave={(file, previewUrl) => {
+          if (editingImageIdx === 1) {
+            setImage1(file);
+            setImage1Preview(previewUrl);
+          } else if (editingImageIdx === 2) {
+            setImage2(file);
+            setImage2Preview(previewUrl);
+          }
+          setEditingImageIdx(null);
+        }}
+      />
     </div>
   );
 }
