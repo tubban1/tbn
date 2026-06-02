@@ -12,6 +12,9 @@ const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'),
 });
 
 export default function MultiImage() {
+  const [activeTab, setActiveTab] = useState('text'); // 'text' | 'image'
+  const [unifiedStyle, setUnifiedStyle] = useState('Cinematic 电影感摄影');
+
   const [copyText, setCopyText] = useState('');
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
@@ -38,7 +41,10 @@ export default function MultiImage() {
     
     try {
       // We will create a new endpoint /api/timage/extract-scenes
-      const response = await axios.post('/api/timage/extract-scenes', { text: copyText });
+      const response = await axios.post('/api/timage/extract-scenes', { 
+        text: copyText,
+        unifiedStyle: activeTab === 'text' ? unifiedStyle : null
+      });
       if (response.data?.success) {
         setScenes(response.data.scenes);
         setInfoMessage(`成功解析出 ${response.data.scenes.length} 个分镜画面！`);
@@ -64,7 +70,11 @@ export default function MultiImage() {
     
     const promises = scenes.map(async (scene, idx) => {
       try {
-        if (baseImage) {
+        if (activeTab === 'image') {
+          if (!baseImage) {
+            updateResult(idx, 'error');
+            return;
+          }
           // Mode 2: Base image + local modify (Image-to-Image)
           const formData = new FormData();
           formData.append('prompt', scene.prompt);
@@ -78,7 +88,7 @@ export default function MultiImage() {
             updateResult(idx, 'error');
           }
         } else {
-          // Mode 1: Text to Image
+          // Mode 1: Text to Image (Unified Style)
           const res = await axios.post('/api/timage/generate', {
             prompt: scene.prompt,
             size: '1024x1024'
@@ -133,33 +143,66 @@ export default function MultiImage() {
       </div>
 
       <div className="main-content">
+        <div className="mode-tabs">
+          <button
+            onClick={() => setActiveTab('text')}
+            className={`mode-tab ${activeTab === 'text' ? 'active' : ''}`}
+          >
+            📝 基于文案：纯分镜大片 (自动保持统一风格)
+          </button>
+          <button
+            onClick={() => setActiveTab('image')}
+            className={`mode-tab ${activeTab === 'image' ? 'active' : ''}`}
+          >
+            📸 基于底图：单图局部衍生 (同一张图的多图输出)
+          </button>
+        </div>
+
         <div className="card">
-          <h3>1. 输入您的长文案 / 故事文档</h3>
+          <h3>1. 输入长文案 / 故事文档</h3>
+          <p className="hint">AI会自动阅读长文并提取分镜画面</p>
           <textarea 
             value={copyText} 
             onChange={e => setCopyText(e.target.value)}
-            placeholder="粘贴您的公众号推文、小红书长笔记或小说故事..."
+            placeholder="粘贴您的公众号推文、小说故事或多图需求描述..."
             rows={6}
             className="input-textarea"
           />
           
-          <div className="upload-section">
-            <h3>2. (可选) 上传基础参考图</h3>
-            <p className="hint">如果上传了参考图，AI将以该图为基础，结合分镜文案进行局部修改和演化生图。</p>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept="image/*" />
-            
-            {!baseImagePreview ? (
-              <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传基础参考图</button>
-            ) : (
-              <div className="preview-container">
-                <img src={baseImagePreview} alt="Base" onClick={() => setEditingImageIdx(true)} className="preview-img" />
-                <button onClick={removeImage} className="btn-remove">✕</button>
-                <span className="preview-hint">点击图片进行画笔标记</span>
-              </div>
-            )}
-          </div>
+          {activeTab === 'text' && (
+            <div className="upload-section">
+              <h3>2. 选择统一风格</h3>
+              <p className="hint">我们将指示AI引擎在提取的所有分镜中强制保持这一统一风格，确保输出的多图具有连贯性。</p>
+              <select value={unifiedStyle} onChange={(e) => setUnifiedStyle(e.target.value)} className="style-select">
+                <option value="Cinematic 电影感摄影">Cinematic 电影感真实摄影</option>
+                <option value="Studio Ghibli 宫崎骏动画风格">Studio Ghibli 宫崎骏日系动画风格</option>
+                <option value="3D Pixar 皮克斯3D渲染">3D Pixar 皮克斯3D卡通渲染</option>
+                <option value="Watercolor 浪漫水彩插画">Watercolor 唯美水彩插画</option>
+                <option value="Cyberpunk 赛博朋克风">Cyberpunk 霓虹赛博朋克风</option>
+                <option value="Minimalist Flat Design 极简扁平化插画">Minimalist Flat 极简扁平化</option>
+              </select>
+            </div>
+          )}
 
-          <button onClick={handleExtractScenes} disabled={isExtracting} className="btn-primary">
+          {activeTab === 'image' && (
+            <div className="upload-section">
+              <h3>2. 上传基础参考图</h3>
+              <p className="hint">请上传一张底图。AI 将基于这张同一图片，结合上述分镜文案，为您生成多张局部被修改/重绘的不同画面！</p>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept="image/*" />
+              
+              {!baseImagePreview ? (
+                <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传单张底图</button>
+              ) : (
+                <div className="preview-container">
+                  <img src={baseImagePreview} alt="Base" onClick={() => setEditingImageIdx(true)} className="preview-img" />
+                  <button onClick={removeImage} className="btn-remove">✕</button>
+                  <span className="preview-hint">点击可作画笔标记</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button onClick={handleExtractScenes} disabled={isExtracting || (activeTab === 'image' && !baseImagePreview)} className="btn-primary" style={{ marginTop: '1.5rem' }}>
             {isExtracting ? '⏳ 正在让AI深度阅读并提取分镜...' : '🪄 第一步：智能解析文案分镜'}
           </button>
           
@@ -227,8 +270,13 @@ export default function MultiImage() {
         .title { font-size: 2rem; background: linear-gradient(to right, #2dd4bf, #3b82f6); -webkit-background-clip: text; color: transparent; }
         .subtitle { color: #94a3b8; }
         .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: #0f172a; padding: 0.5rem; border-radius: 12px; border: 1px solid #334155; }
+        .mode-tab { flex: 1; background: transparent; border: none; color: #94a3b8; padding: 0.75rem; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .mode-tab:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
+        .mode-tab.active { background: #1e293b; color: #2dd4bf; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .input-textarea { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 1rem; border-radius: 8px; resize: vertical; }
-        .upload-section { margin: 1.5rem 0; border-top: 1px solid #334155; padding-top: 1.5rem; }
+        .style-select { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 1rem; border-radius: 8px; cursor: pointer; }
+        .upload-section { margin: 1.5rem 0 0 0; border-top: 1px solid #334155; padding-top: 1.5rem; }
         .hint { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem; }
         .btn-upload { background: #334155; border: 1px dashed #475569; color: #e2e8f0; padding: 1rem 2rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
         .btn-upload:hover { border-color: #2dd4bf; color: #2dd4bf; }
