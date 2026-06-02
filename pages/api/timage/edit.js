@@ -118,7 +118,7 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${apiKey}`,
           ...formData.getHeaders()
         },
-        timeout: 300000 // 300s timeout
+        timeout: 400000 // 400s timeout
       }
     );
 

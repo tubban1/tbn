@@ -30,6 +30,74 @@ export default function MultiImage() {
   
   const [editingImageIdx, setEditingImageIdx] = useState(false);
 
+  const EMAIL_REGEX = /^[^s@]+@[^s@]+\.[^s@]+$/;
+  const [email, setEmail] = useState('');
+  const [emailStatus, setEmailStatus] = useState('none');
+  const [credits, setCredits] = useState(0);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [historyList, setHistoryList] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('timage_email');
+    const storedVerified = localStorage.getItem('timage_verified') === 'true';
+
+    if (storedEmail && storedVerified) {
+      setEmail(storedEmail);
+      handleVerifyEmail(storedEmail);
+    }
+  }, []);
+
+  const handleVerifyEmail = async (emailToVerify) => {
+    if (!emailToVerify || !EMAIL_REGEX.test(emailToVerify)) {
+      setErrorMessage('请输入有效的电子邮箱！');
+      return;
+    }
+    setIsCheckingEmail(true);
+    setErrorMessage('');
+    try {
+      const response = await axios.post('/api/timage/pre-check', { email: emailToVerify });
+      if (response.data?.success) {
+        setEmailStatus('verified');
+        setCredits(response.data.credits);
+        localStorage.setItem('timage_email', emailToVerify);
+        localStorage.setItem('timage_verified', 'true');
+        loadHistory(emailToVerify);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err.response?.data?.error || '登录失败，请检查数据库配置或网络');
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('timage_email');
+    localStorage.removeItem('timage_verified');
+    setEmail('');
+    setEmailStatus('none');
+    setCredits(0);
+    setHistoryList([]);
+  };
+
+  const loadHistory = async (userEmail) => {
+    if (!userEmail) return;
+    setIsLoadingHistory(true);
+    try {
+      const res = await axios.post('/api/timage/history', { email: userEmail, limit: 12 });
+      if (res.data?.success) {
+        setHistoryList(res.data.images || []);
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+
   // Parse long text into scenes
   const handleExtractScenes = async () => {
     if (!copyText.trim()) {
@@ -78,6 +146,7 @@ export default function MultiImage() {
           // Mode 2: Base image + local modify (Image-to-Image)
           const formData = new FormData();
           formData.append('prompt', scene.prompt);
+          if (email) formData.append('email', email);
           formData.append('size', '1024x1024'); // default
           formData.append('image', baseImage);
           
@@ -91,7 +160,8 @@ export default function MultiImage() {
           // Mode 1: Text to Image (Unified Style)
           const res = await axios.post('/api/timage/generate', {
             prompt: scene.prompt,
-            size: '1024x1024'
+            size: '1024x1024',
+            email
           });
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
@@ -107,6 +177,11 @@ export default function MultiImage() {
     await Promise.all(promises);
     setIsGenerating(false);
     setInfoMessage('✅ 批量生成完毕！');
+    if (email) {
+      const lastRes = await axios.post('/api/timage/pre-check', { email });
+      if (lastRes.data?.success) setCredits(lastRes.data.credits);
+      loadHistory(email);
+    }
   };
 
   const updateResult = (idx, url) => {
@@ -137,10 +212,46 @@ export default function MultiImage() {
         <title>天工创界 | 智能分镜批量多图生成</title>
       </Head>
 
-      <div className="header">
-        <h1 className="title">📚 长文案/参考图 批量生图引擎</h1>
-        <p className="subtitle">自动理解超长文案并提取分镜，结合基础参考图实现批量局部修改与重绘</p>
-      </div>
+      
+      {/* Header */}
+      <header className="site-header">
+        <div className="header-container">
+          <div className="logo-section">
+            <div>
+              <h1 className="logo-title">天工创界 | 多图智能生成引擎</h1>
+            </div>
+          </div>
+
+          <div className="user-section">
+            {emailStatus === 'verified' ? (
+              <div className="user-badge">
+                <span className="user-email">✉️ {email}</span>
+                <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
+                <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
+                <button onClick={handleLogout} className="btn-logout">退出</button>
+              </div>
+            ) : (
+              <div className="login-form">
+                <input
+                  type="email"
+                  placeholder="输入邮箱登录 / 自动注册..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="login-input"
+                />
+                <button
+                  onClick={() => handleVerifyEmail(email)}
+                  disabled={isCheckingEmail}
+                  className="btn-login"
+                >
+                  {isCheckingEmail ? '登录中...' : '登录 / 注册'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
 
       <div className="main-content">
         <div className="mode-tabs">
@@ -235,6 +346,7 @@ export default function MultiImage() {
             <div className="results-grid">
               {results.map((res, idx) => (
                 <div key={idx} className="result-item">
+                  
                   <div className="result-header">镜头 {idx + 1}</div>
                   {res === null ? (
                     <div className="result-loading">
@@ -243,14 +355,65 @@ export default function MultiImage() {
                   ) : res === 'error' ? (
                     <div className="result-error">生成失败</div>
                   ) : (
-                    <img src={res} alt={`Result ${idx}`} className="result-img" />
+                    <>
+                      <img src={res} alt={`Result ${idx}`} className="result-img" />
+                      <div className="result-actions" style={{ padding: '10px', display: 'flex', gap: '8px' }}>
+                        <a href={res} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>👁️ 预览</a>
+                        <a href={res} download={`result_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>💾 下载</a>
+                      </div>
+                    </>
                   )}
+
                   {scenes[idx] && <p className="result-desc">{scenes[idx].description}</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
+      
+        {/* History Gallery Section */}
+        {emailStatus === 'verified' && (
+          <section className="gallery-section" style={{ marginTop: '3rem' }}>
+            <div className="gallery-header">
+              <h3>📦 我的多图作品库</h3>
+              <p>保存您历史生成的全部高清大片</p>
+            </div>
+
+            {isLoadingHistory ? (
+              <div className="gallery-loader">⏳ 正在读取您的云端作品库...</div>
+            ) : historyList.length === 0 ? (
+              <div className="gallery-empty">您还没有生成过任何画作，在上方填写参数生成您的第一套大片吧！</div>
+            ) : (
+              <div className="gallery-grid">
+                {historyList.map((item) => (
+                  <div key={item.id} className="gallery-card">
+                    <div className="gallery-img-container">
+                      <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" />
+                    </div>
+                    <div className="gallery-card-info">
+                      <span className="gallery-style-badge">{item.style === 'edit' ? '📸 局部衍生' : '✨ 文本分镜'}</span>
+                      <p className="gallery-prompt-text">{item.prompt || '图景'}</p>
+                      <div className="gallery-card-actions">
+                        <a href={item.generated_url} target="_blank" rel="noreferrer" className="gallery-action-link">预览</a>
+                        <a href={item.generated_url} download={`history_${item.id}.jpg`} className="gallery-action-link">下载</a>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(item.generated_url);
+                            alert('复制成功！');
+                          }}
+                          className="gallery-action-btn"
+                        >
+                          复制链接
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
       </div>
 
       <ImageMarkupModal 
@@ -305,6 +468,32 @@ export default function MultiImage() {
         .result-error { height: 250px; display: flex; align-items: center; justify-content: center; color: #ef4444; }
         .result-img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
         .result-desc { padding: 1rem; font-size: 0.85rem; color: #94a3b8; margin: 0; background: #1e293b; }
+
+        .site-header { background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 100; margin-bottom: 2rem;}
+        .header-container { max-width: 1400px; margin: 0 auto; padding: 0.85rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .logo-title { font-size: 1.5rem; font-weight: 700; margin: 0; background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .user-section { display: flex; align-items: center; }
+        .login-form { display: flex; gap: 0.5rem; }
+        .login-input { background-color: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.5rem 0.85rem; color: #fff; }
+        .btn-login { background-color: #0d9488; color: white; border: none; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
+        .user-badge { display: flex; align-items: center; gap: 0.75rem; background: rgba(13, 148, 136, 0.08); border: 1px solid rgba(13, 148, 136, 0.3); border-radius: 8px; padding: 0.4rem 0.85rem; font-size: 0.85rem; }
+        .user-email { font-weight: 500; color: #2dd4bf; }
+        .user-credits { color: #f8fafc; border-left: 1px solid rgba(255, 255, 255, 0.15); padding-left: 0.75rem; }
+        .btn-recharge { background-color: #f59e0b; color: #0b1120; border: none; border-radius: 6px; padding: 0.25rem 0.65rem; font-weight: 700; cursor: pointer; }
+        .btn-logout { background: transparent; border: none; color: #94a3b8; cursor: pointer; }
+        .gallery-section { margin-top: 3rem; }
+        .gallery-header { margin-bottom: 2rem; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+        .gallery-card { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; transition: transform 0.2s; }
+        .gallery-card:hover { transform: translateY(-4px); }
+        .gallery-img-container { width: 100%; aspect-ratio: 1; overflow: hidden; background: #0f172a; }
+        .gallery-img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-card-info { padding: 1rem; }
+        .gallery-style-badge { background: rgba(45,212,191,0.1); color: #2dd4bf; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; }
+        .gallery-prompt-text { font-size: 0.85rem; color: #cbd5e1; margin: 0.75rem 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .gallery-card-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .gallery-action-link, .gallery-action-btn { flex: 1; text-align: center; background: rgba(255,255,255,0.05); color: #94a3b8; border: none; padding: 0.5rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
+        .gallery-action-link:hover, .gallery-action-btn:hover { background: rgba(255,255,255,0.1); color: white; }
       `}</style>
     </div>
   );

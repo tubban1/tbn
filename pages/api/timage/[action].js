@@ -273,7 +273,7 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 300000 // 300s timeout
+          timeout: 400000 // 400s timeout
         }
       );
 
