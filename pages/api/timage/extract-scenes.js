@@ -1,4 +1,5 @@
-// Removed axios, using native fetch for Vercel Node 22.x stability
+import axios from 'axios';
+import https from 'https';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,8 +24,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
     }
 
-    const styleInstruction = unifiedStyle 
-      ? `\nCRITICAL STYLE REQUIREMENT: You MUST enforce the art style "${unifiedStyle}" in EVERY single prompt you generate. Ignore any conflicting style references in the text.` 
+    const styleInstruction = unifiedStyle
+      ? `\nCRITICAL STYLE REQUIREMENT: You MUST enforce the art style "${unifiedStyle}" in EVERY single prompt you generate. Ignore any conflicting style references in the text.`
       : '';
 
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
@@ -48,31 +49,28 @@ Format:
       textLength: text.length
     });
 
-    const response = await fetch(`${apiBase}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
+    const response = await axios.post(
+      `${apiBase}/chat/completions`,
+      {
         model: promptModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
         temperature: 0.7
-      }),
-      signal: AbortSignal.timeout(60000)
-    });
+      },
+      {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000,
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
+    const content = response.data?.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error('No content returned from AI model');
     }
@@ -104,10 +102,10 @@ Format:
     });
 
   } catch (error) {
-    console.error('[Extract Scenes Error]', error);
+    console.error('[Extract Scenes Error]', error.response?.data || error.message);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Server Error'
+      error: error.response?.data?.error?.message || error.message || 'Server Error'
     });
   }
 }

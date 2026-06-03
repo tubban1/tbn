@@ -1,6 +1,7 @@
 import multer from 'multer';
 import axios from 'axios';
 import FormData from 'form-data';
+import https from 'https';
 import { query } from '../../../lib/db';
 import { 
   ensureCreditsTables, 
@@ -118,7 +119,8 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${apiKey}`,
           ...formData.getHeaders()
         },
-        timeout: 400000 // 400s timeout
+        timeout: 400000, // 400s timeout
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
       }
     );
 

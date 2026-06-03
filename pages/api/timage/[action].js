@@ -1,4 +1,5 @@
 import axios from 'axios';
+import https from 'https';
 import { query } from '../../../lib/db';
 import {
   ensureCreditsTables,
@@ -171,7 +172,8 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 60000
+          timeout: 60000,
+          httpsAgent: new https.Agent({ rejectUnauthorized: false })
         }
       );
 
@@ -273,7 +275,8 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 400000 // 400s timeout
+          timeout: 400000, // 400s timeout
+          httpsAgent: new https.Agent({ rejectUnauthorized: false })
         }
       );
 
