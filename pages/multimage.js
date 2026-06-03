@@ -15,6 +15,7 @@ const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'),
 export default function MultiImage() {
   const [activeTab, setActiveTab] = useState('text'); // 'text' | 'image'
   const [unifiedStyle, setUnifiedStyle] = useState('Cinematic 电影感摄影');
+  const [sceneCount, setSceneCount] = useState(6);
 
   const [copyText, setCopyText] = useState('');
   const [baseImage, setBaseImage] = useState(null);
@@ -110,7 +111,8 @@ export default function MultiImage() {
       // We will create a new endpoint /api/timage/extract-scenes
       const response = await axios.post('/api/timage/extract-scenes', { 
         text: copyText,
-        unifiedStyle: activeTab === 'text' ? unifiedStyle : null
+        unifiedStyle: activeTab === 'text' ? unifiedStyle : null,
+        sceneCount
       });
       if (response.data?.success) {
         setScenes(response.data.scenes);
@@ -290,13 +292,29 @@ export default function MultiImage() {
         <div className="card">
           <h3>1. 输入长文案 / 故事文档</h3>
           <p className="hint">AI会自动阅读长文并提取分镜画面</p>
-          <textarea 
+            <textarea 
             value={copyText} 
             onChange={e => setCopyText(e.target.value)}
             placeholder="粘贴您的公众号推文、小说故事或多图需求描述..."
             rows={6}
             className="input-textarea"
           />
+          <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center' }}>
+            <label style={{ color: '#cbd5e1', fontSize: '0.9rem', marginRight: '1rem' }}>生成分镜数量 (2-20张)：</label>
+            <input 
+              type="number" 
+              min="2" max="20" 
+              value={sceneCount} 
+              onChange={e => setSceneCount(e.target.value ? Math.min(20, Math.max(2, parseInt(e.target.value) || 2)) : '')}
+              onBlur={() => {
+                if (!sceneCount || sceneCount < 2) setSceneCount(2);
+              }}
+              style={{
+                background: '#0f172a', border: '1px solid #334155', color: '#fff',
+                padding: '0.5rem', borderRadius: '6px', width: '80px'
+              }}
+            />
+          </div>
           
           {activeTab === 'text' && (
             <div className="upload-section">
