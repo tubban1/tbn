@@ -147,50 +147,17 @@ export default async function handler(req, res) {
     let drawImageId = null;
     let originalInputB64 = null;
 
-    // 1. Upload input image if present synchronously
-    let permanentInputUrl = 'image-edit';
-    let permanentInputDisplayUrl = 'image-edit';
+    // Asynchronous Persistence Pattern: return raw image immediately to frontend
+    // The background /persist endpoint will handle Freeimage.host upload later.
+    let permanentInputUrl = 'temp_placeholder';
+    let permanentInputDisplayUrl = 'temp_placeholder';
     if (files && files.length > 0) {
       originalInputB64 = `data:${files[0].mimetype || 'image/png'};base64,${files[0].buffer.toString('base64')}`;
-      try {
-        console.log(`[TImage Edit] Uploading input image to Freeimage.host synchronously`);
-        const filename = `input_${Date.now()}.png`;
-        const parts = originalInputB64.split(';base64,');
-        const mimeType = parts[0].split(':')[1];
-        const b64Data = parts[1];
-        const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-        permanentInputUrl = uploadResult.url;
-        permanentInputDisplayUrl = uploadResult.displayUrl;
-        console.log(`[TImage Edit] Input image upload success: displayUrl = ${permanentInputDisplayUrl}`);
-      } catch (uploadErr) {
-        console.error('[TImage Edit] Failed to upload input image to Freeimage.host, falling back to base64:', uploadErr.message);
-        permanentInputUrl = originalInputB64;
-        permanentInputDisplayUrl = originalInputB64;
-      }
     }
 
-    // 2. Upload generated output image synchronously
-    let permanentOutputUrl = freeimageUrl;
-    let permanentDisplayUrl = freeimageUrl;
-    try {
-      console.log(`[TImage Edit] Uploading generated edited image to Freeimage.host synchronously`);
-      const filename = `edited_${Date.now()}.png`;
-      if (freeimageUrl.startsWith('data:')) {
-        const parts = freeimageUrl.split(';base64,');
-        const mimeType = parts[0].split(':')[1];
-        const b64Data = parts[1];
-        const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-        permanentOutputUrl = uploadResult.url;
-        permanentDisplayUrl = uploadResult.displayUrl;
-      } else if (freeimageUrl.startsWith('http')) {
-        const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
-        permanentOutputUrl = uploadResult.url;
-        permanentDisplayUrl = uploadResult.displayUrl;
-      }
-      console.log(`[TImage Edit] Edited output image upload success: displayUrl = ${permanentDisplayUrl}`);
-    } catch (uploadErr) {
-      console.error('[TImage Edit] Failed to upload edited output image to Freeimage.host, falling back to original URL:', uploadErr.message);
-    }
+    // 2. Output image persistence placeholder
+    let permanentOutputUrl = 'temp_placeholder';
+    let permanentDisplayUrl = 'temp_placeholder';
 
     if (email) {
       try {
@@ -212,8 +179,8 @@ export default async function handler(req, res) {
 
     return res.json({
       success: true,
-      originalUrl: permanentOutputUrl,
-      freeimageUrl: permanentDisplayUrl,
+      originalUrl: freeimageUrl,
+      freeimageUrl: freeimageUrl,
       drawImageId,
       originalInputB64,
       model,

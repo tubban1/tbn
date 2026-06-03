@@ -382,6 +382,17 @@ export default function TImage() {
                   updated[idx] = item;
                   return updated;
                 });
+                
+                // Asynchronously persist to Freeimage
+                if (email && res.data.drawImageId) {
+                  axios.post('/api/timage/persist', {
+                    drawImageId: res.data.drawImageId,
+                    imageUrl: res.data.freeimageUrl
+                  }).then(() => {
+                    loadHistory(email);
+                  }).catch(err => console.error("Persist failed", err));
+                }
+
                 return item;
               } else {
                 console.error(`Prompt slot ${idx} failed:`, res.data?.error);
@@ -440,7 +451,18 @@ export default function TImage() {
             setGeneratedUrl(out.generatedUrl);
             setDisplayUrl(out.displayUrl);
             setCredits(response.data.credits);
-            loadHistory(email);
+
+            // Asynchronously persist to Freeimage
+            if (email && response.data.drawImageId) {
+              axios.post('/api/timage/persist', {
+                drawImageId: response.data.drawImageId,
+                imageUrl: response.data.freeimageUrl
+              }).then(() => {
+                loadHistory(email);
+              }).catch(err => console.error("Persist failed", err));
+            } else {
+              loadHistory(email);
+            }
           }
         }
       } else {

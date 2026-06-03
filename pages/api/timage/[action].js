@@ -299,28 +299,10 @@ export default async function handler(req, res) {
         throw new Error('Invalid image format returned from VectorEngine');
       }
 
-      // Synchronously upload generated image to Freeimage.host on the server
-      let permanentOutputUrl = freeimageUrl;
-      let permanentDisplayUrl = freeimageUrl;
-      try {
-        console.log(`[TImage] Uploading generated image to Freeimage.host synchronously`);
-        const filename = `generated_${Date.now()}.png`;
-        if (freeimageUrl.startsWith('data:')) {
-          const parts = freeimageUrl.split(';base64,');
-          const mimeType = parts[0].split(':')[1];
-          const b64Data = parts[1];
-          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-          permanentOutputUrl = uploadResult.url;
-          permanentDisplayUrl = uploadResult.displayUrl;
-        } else if (freeimageUrl.startsWith('http')) {
-          const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
-          permanentOutputUrl = uploadResult.url;
-          permanentDisplayUrl = uploadResult.displayUrl;
-        }
-        console.log(`[TImage] Synchronous upload success: displayUrl = ${permanentDisplayUrl}`);
-      } catch (uploadErr) {
-        console.error('[TImage] Failed to upload to Freeimage.host, falling back to original URL:', uploadErr.message);
-      }
+      // Asynchronous Persistence Pattern: return raw image immediately to frontend
+      // The background /persist endpoint will handle Freeimage.host upload later.
+      let permanentOutputUrl = 'temp_placeholder';
+      let permanentDisplayUrl = 'temp_placeholder';
 
       let finalCredits = currentCredits;
       let drawImageId = null;
@@ -344,8 +326,8 @@ export default async function handler(req, res) {
 
       return res.json({
         success: true,
-        originalUrl: permanentOutputUrl,
-        freeimageUrl: permanentDisplayUrl,
+        originalUrl: freeimageUrl,
+        freeimageUrl: freeimageUrl,
         drawImageId,
         model,
         size,
