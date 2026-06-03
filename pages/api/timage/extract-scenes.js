@@ -1,4 +1,4 @@
-import axios from 'axios';
+// Removed axios, using native fetch for Vercel Node 22.x stability
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -48,27 +48,31 @@ Format:
       textLength: text.length
     });
 
-    const response = await axios.post(
-      `${apiBase}/chat/completions`,
-      {
+    const response = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         model: promptModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
         temperature: 0.7
-      },
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 60000
-      }
-    );
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
 
-    const content = response.data?.choices?.[0]?.message?.content;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error('No content returned from AI model');
     }
@@ -100,10 +104,10 @@ Format:
     });
 
   } catch (error) {
-    console.error('[Extract Scenes Error]', error.response?.data || error.message);
+    console.error('[Extract Scenes Error]', error);
     return res.status(500).json({
       success: false,
-      error: error.response?.data?.error?.message || error.message || 'Server Error'
+      error: error.message || 'Server Error'
     });
   }
 }
