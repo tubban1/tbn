@@ -299,9 +299,7 @@ export default async function handler(req, res) {
         throw new Error('Invalid image format returned from VectorEngine');
       }
 
-      // Asynchronous Persistence Pattern: return raw image immediately to frontend
-      // The background unawaited Promise will handle Freeimage.host upload later.
-      // We use placeholders in DB so no Base64 is stored.
+      // We use placeholders in draw_images DB so no Base64 is stored directly in the main table.
       let permanentOutputUrl = 'temp_placeholder';
       let permanentDisplayUrl = 'temp_placeholder';
 
@@ -320,39 +318,18 @@ export default async function handler(req, res) {
           console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
           const savedImage = await saveDrawImagePair(email, 'text-to-image', permanentOutputUrl, permanentDisplayUrl, 'text', prompt);
           drawImageId = savedImage?.id || null;
+
+          if (drawImageId && freeimageUrl) {
+            // Store the 5MB Base64 temporarily in the temp_image_data table
+            // This prevents Vercel payload limit issues while keeping the main table clean!
+            await query(
+              'INSERT INTO temp_image_data (draw_image_id, output_base64) VALUES (?, ?)',
+              [drawImageId, freeimageUrl]
+            );
+          }
         } catch (dbErr) {
           console.error('[TImage] Failed to update credits/save generation record to DB:', dbErr.message);
         }
-      }
-
-      // Fire and forget background Freeimage upload
-      if (drawImageId && freeimageUrl) {
-        (async () => {
-          try {
-            console.log(`[TImage Background] Starting Freeimage upload for ID: ${drawImageId}`);
-            let finalOutputUrl = 'temp_placeholder';
-            let finalDisplayUrl = 'temp_placeholder';
-            if (freeimageUrl.startsWith('data:')) {
-              const parts = freeimageUrl.split(';base64,');
-              const mimeType = parts[0].split(':')[1];
-              const b64Data = parts[1];
-              const filename = `generated_${Date.now()}.png`;
-              const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-              finalOutputUrl = uploadResult.url;
-              finalDisplayUrl = uploadResult.displayUrl;
-            } else if (freeimageUrl.startsWith('http')) {
-              const filename = `generated_${Date.now()}.png`;
-              const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
-              finalOutputUrl = uploadResult.url;
-              finalDisplayUrl = uploadResult.displayUrl;
-            }
-            await query('UPDATE draw_images SET generated_url = ?, display_url = ? WHERE id = ?', 
-                        [finalOutputUrl, finalDisplayUrl, drawImageId]);
-            console.log(`[TImage Background] Successfully updated ID: ${drawImageId} with permanent URLs.`);
-          } catch (err) {
-            console.error(`[TImage Background] Failed to upload/update ID: ${drawImageId}`, err);
-          }
-        })();
       }
 
       return res.json({
@@ -375,19 +352,19 @@ export default async function handler(req, res) {
 
       console.log(`[TImage Persist] Starting background persist for ID: ${drawImageId}`);
 
-      // Fetch base64 data directly from DB to avoid Vercel's 4.5MB request payload limit
-      const rows = await query('SELECT sketch_url, generated_url, display_url FROM draw_images WHERE id = ?', [drawImageId]);
+      // Fetch base64 data directly from temp table
+      const rows = await query('SELECT output_base64, input_base64 FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
       if (!rows || rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Record not found' });
+        return res.status(404).json({ success: false, error: 'Temp record not found or already processed' });
       }
 
       const record = rows[0];
-      const imageUrl = record.generated_url;
-      const inputImageUrl = record.sketch_url;
+      const imageUrl = record.output_base64;
+      const inputImageUrl = record.input_base64;
 
       // 1. Upload generated output image
-      let permanentOutputUrl = imageUrl;
-      let permanentDisplayUrl = record.display_url || imageUrl;
+      let permanentOutputUrl = 'temp_placeholder';
+      let permanentDisplayUrl = 'temp_placeholder';
 
       if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
         const filename = `generated_${Date.now()}.png`;
@@ -406,8 +383,8 @@ export default async function handler(req, res) {
       }
 
       // 2. Upload input image if present
-      let permanentInputUrl = inputImageUrl;
-      let permanentInputDisplayUrl = inputImageUrl;
+      let permanentInputUrl = null;
+      let permanentInputDisplayUrl = null;
 
       if (inputImageUrl && inputImageUrl.startsWith('data:')) {
         const parts = inputImageUrl.split(';base64,');
@@ -419,7 +396,7 @@ export default async function handler(req, res) {
         permanentInputDisplayUrl = uploadResult.displayUrl;
       }
 
-      // 3. Update database record
+      // 3. Update database record with URLs
       if (permanentInputUrl) {
         await query(
           'UPDATE draw_images SET sketch_url = ?, generated_url = ?, display_url = ? WHERE id = ?',
@@ -431,6 +408,9 @@ export default async function handler(req, res) {
           [permanentOutputUrl, permanentDisplayUrl, drawImageId]
         );
       }
+
+      // 4. Cleanup temp table
+      await query('DELETE FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
 
       console.log(`[TImage Persist] Successfully persisted ID: ${drawImageId} -> Output: ${permanentOutputUrl}, Display: ${permanentDisplayUrl}`);
       return res.json({ success: true, freeimageUrl: permanentDisplayUrl, originalUrl: permanentOutputUrl });
