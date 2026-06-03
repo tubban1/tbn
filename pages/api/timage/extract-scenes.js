@@ -84,9 +84,9 @@ Format:
       throw new Error('AI returned invalid format. Please try again.');
     }
 
-    // Limit to max 6 scenes
-    if (scenes.length > 6) {
-      scenes = scenes.slice(0, 6);
+    // Limit to max 12 scenes
+    if (scenes.length > 12) {
+      scenes = scenes.slice(0, 12);
     }
 
     return res.json({
