@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   const { text, unifiedStyle, sceneCount = 6 } = req.body;
-  const maxScenes = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
+  const targetSceneCount = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
 
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ success: false, error: 'Text content is required' });
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       : '';
 
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
-Your task is to analyze the user's provided long text, story, or article, and split it into logical visual scenes (maximum ${maxScenes} scenes to prevent overloading).
+Your task is to analyze the user's provided long text, story, or article, and split it into EXACTLY ${targetSceneCount} logical visual scenes. You MUST generate exactly ${targetSceneCount} scenes, no more, no less.
 For each scene, extract the core action/visual and write a highly detailed, professional English Midjourney/Stable Diffusion prompt.${styleInstruction}
 Also provide a short Chinese description of what the scene is about.
 
@@ -89,9 +89,9 @@ Format:
       throw new Error('AI returned invalid format. Please try again.');
     }
 
-    // Limit to user defined max scenes
-    if (scenes.length > maxScenes) {
-      scenes = scenes.slice(0, maxScenes);
+    // Limit to user defined exact scenes if AI generates too many
+    if (scenes.length > targetSceneCount) {
+      scenes = scenes.slice(0, targetSceneCount);
     }
 
     return res.json({
