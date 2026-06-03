@@ -301,8 +301,9 @@ export default async function handler(req, res) {
 
       // Asynchronous Persistence Pattern: return raw image immediately to frontend
       // The background /persist endpoint will handle Freeimage.host upload later.
-      let permanentOutputUrl = 'temp_placeholder';
-      let permanentDisplayUrl = 'temp_placeholder';
+      // We save the raw base64 temporarily to the DB to avoid Vercel 4.5MB payload limits during /persist
+      let permanentOutputUrl = freeimageUrl;
+      let permanentDisplayUrl = freeimageUrl;
 
       let finalCredits = currentCredits;
       let drawImageId = null;
@@ -337,16 +338,26 @@ export default async function handler(req, res) {
     }
 
     else if (action === 'persist') {
-      const { drawImageId, imageUrl, inputImageUrl } = req.body;
+      const { drawImageId } = req.body;
       if (!drawImageId) {
         return res.status(400).json({ success: false, error: 'drawImageId is required' });
       }
 
       console.log(`[TImage Persist] Starting background persist for ID: ${drawImageId}`);
 
+      // Fetch base64 data directly from DB to avoid Vercel's 4.5MB request payload limit
+      const rows = await query('SELECT sketch_url, generated_url, display_url FROM draw_images WHERE id = ?', [drawImageId]);
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Record not found' });
+      }
+
+      const record = rows[0];
+      const imageUrl = record.generated_url;
+      const inputImageUrl = record.sketch_url;
+
       // 1. Upload generated output image
       let permanentOutputUrl = imageUrl;
-      let permanentDisplayUrl = imageUrl;
+      let permanentDisplayUrl = record.display_url || imageUrl;
 
       if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
         const filename = `generated_${Date.now()}.png`;

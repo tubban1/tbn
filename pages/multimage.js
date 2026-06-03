@@ -153,6 +153,10 @@ export default function MultiImage() {
           const res = await axios.post('/api/timage/edit', formData);
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
+            if (email && res.data.drawImageId) {
+              axios.post('/api/timage/persist', { drawImageId: res.data.drawImageId })
+                .catch(err => console.error("Persist failed", err));
+            }
           } else {
             updateResult(idx, 'error');
           }
@@ -165,6 +169,10 @@ export default function MultiImage() {
           });
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
+            if (email && res.data.drawImageId) {
+              axios.post('/api/timage/persist', { drawImageId: res.data.drawImageId })
+                .catch(err => console.error("Persist failed", err));
+            }
           } else {
             updateResult(idx, 'error');
           }

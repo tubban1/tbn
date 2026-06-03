@@ -149,15 +149,18 @@ export default async function handler(req, res) {
 
     // Asynchronous Persistence Pattern: return raw image immediately to frontend
     // The background /persist endpoint will handle Freeimage.host upload later.
-    let permanentInputUrl = 'temp_placeholder';
-    let permanentInputDisplayUrl = 'temp_placeholder';
+    // We save the raw base64 temporarily to the DB to avoid Vercel 4.5MB payload limits during /persist
+    let permanentInputUrl = 'text-to-image';
+    let permanentInputDisplayUrl = 'text-to-image';
     if (files && files.length > 0) {
       originalInputB64 = `data:${files[0].mimetype || 'image/png'};base64,${files[0].buffer.toString('base64')}`;
+      permanentInputUrl = originalInputB64;
+      permanentInputDisplayUrl = originalInputB64;
     }
 
     // 2. Output image persistence placeholder
-    let permanentOutputUrl = 'temp_placeholder';
-    let permanentDisplayUrl = 'temp_placeholder';
+    let permanentOutputUrl = freeimageUrl;
+    let permanentDisplayUrl = freeimageUrl;
 
     if (email) {
       try {

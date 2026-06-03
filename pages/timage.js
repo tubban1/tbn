@@ -386,8 +386,7 @@ export default function TImage() {
                 // Asynchronously persist to Freeimage
                 if (email && res.data.drawImageId) {
                   axios.post('/api/timage/persist', {
-                    drawImageId: res.data.drawImageId,
-                    imageUrl: res.data.freeimageUrl
+                    drawImageId: res.data.drawImageId
                   }).then(() => {
                     loadHistory(email);
                   }).catch(err => console.error("Persist failed", err));
@@ -455,8 +454,7 @@ export default function TImage() {
             // Asynchronously persist to Freeimage
             if (email && response.data.drawImageId) {
               axios.post('/api/timage/persist', {
-                drawImageId: response.data.drawImageId,
-                imageUrl: response.data.freeimageUrl
+                drawImageId: response.data.drawImageId
               }).then(() => {
                 loadHistory(email);
               }).catch(err => console.error("Persist failed", err));
@@ -493,7 +491,16 @@ export default function TImage() {
           setGeneratedUrl(out.generatedUrl);
           setDisplayUrl(out.displayUrl);
           setCredits(response.data.credits);
-          loadHistory(email);
+          
+          if (email && response.data.drawImageId) {
+            axios.post('/api/timage/persist', {
+              drawImageId: response.data.drawImageId
+            }).then(() => {
+              loadHistory(email);
+            }).catch(err => console.error("Persist failed", err));
+          } else {
+            loadHistory(email);
+          }
         }
       }
     } catch (error) {
