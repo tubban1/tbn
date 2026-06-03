@@ -97,28 +97,6 @@ export default function MultiImage() {
     }
   };
 
-  const asyncPersistBase64 = async (drawImageId, email, base64Url) => {
-    try {
-      const chunkSize = 2 * 1024 * 1024; 
-      const chunks = [];
-      for (let i = 0; i < base64Url.length; i += chunkSize) {
-        chunks.push(base64Url.slice(i, i + chunkSize));
-      }
-      
-      for (let i = 0; i < chunks.length; i++) {
-        await axios.post('/api/timage/persist_chunk', {
-          drawImageId,
-          chunkIndex: i,
-          totalChunks: chunks.length,
-          chunkData: chunks[i]
-        });
-      }
-    } catch (e) {
-      console.error("Chunk persist failed", e);
-    }
-  };
-
-
   // Parse long text into scenes
   const handleExtractScenes = async () => {
     if (!copyText.trim()) {
@@ -174,9 +152,6 @@ export default function MultiImage() {
           const res = await axios.post('/api/timage/edit', formData);
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
-            if (email && res.data.drawImageId) {
-              asyncPersistBase64(res.data.drawImageId, email, res.data.freeimageUrl);
-            }
           } else {
             updateResult(idx, 'error');
           }
@@ -189,9 +164,6 @@ export default function MultiImage() {
           });
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
-            if (email && res.data.drawImageId) {
-              asyncPersistBase64(res.data.drawImageId, email, res.data.freeimageUrl);
-            }
           } else {
             updateResult(idx, 'error');
           }

@@ -299,9 +299,30 @@ export default async function handler(req, res) {
         throw new Error('Invalid image format returned from VectorEngine');
       }
 
-      // We use placeholders in draw_images DB so no Base64 is stored directly in the main table.
-      let permanentOutputUrl = 'temp_placeholder';
-      let permanentDisplayUrl = 'temp_placeholder';
+      // Synchronously upload to Freeimage.host to ensure the URL is generated and saved correctly
+      let permanentOutputUrl = freeimageUrl;
+      let permanentDisplayUrl = freeimageUrl;
+
+      try {
+        console.log(`[TImage] Starting synchronous Freeimage upload...`);
+        if (freeimageUrl.startsWith('data:')) {
+          const parts = freeimageUrl.split(';base64,');
+          const mimeType = parts[0].split(':')[1] || 'image/png';
+          const b64Data = parts[1];
+          const filename = `generated_${Date.now()}.png`;
+          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+          permanentOutputUrl = uploadResult.url;
+          permanentDisplayUrl = uploadResult.displayUrl;
+        } else if (freeimageUrl.startsWith('http')) {
+          const filename = `generated_${Date.now()}.png`;
+          const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
+          permanentOutputUrl = uploadResult.url;
+          permanentDisplayUrl = uploadResult.displayUrl;
+        }
+        console.log(`[TImage] Synchronous Freeimage upload complete. URL: ${permanentOutputUrl}`);
+      } catch (uploadErr) {
+        console.error('[TImage] Synchronous upload failed, falling back to original URL:', uploadErr.message);
+      }
 
       let finalCredits = currentCredits;
       let drawImageId = null;
@@ -325,8 +346,8 @@ export default async function handler(req, res) {
 
       return res.json({
         success: true,
-        originalUrl: freeimageUrl,
-        freeimageUrl: freeimageUrl,
+        originalUrl: permanentOutputUrl,
+        freeimageUrl: permanentDisplayUrl,
         drawImageId,
         model,
         size,
@@ -335,102 +356,7 @@ export default async function handler(req, res) {
       });
     }
 
-    else if (action === 'persist_chunk') {
-      const { drawImageId, chunkIndex, totalChunks, chunkData, isEdit, inputChunkData } = req.body;
-      if (!drawImageId) return res.status(400).json({ success: false, error: 'drawImageId is required' });
 
-      console.log(`[TImage Persist Chunk] ID: ${drawImageId}, Chunk: ${chunkIndex + 1}/${totalChunks}`);
-
-      // Save chunks to temp_image_data
-      if (chunkIndex === 0) {
-        if (isEdit) {
-          await query(
-            'INSERT INTO temp_image_data (draw_image_id, output_base64, input_base64) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE output_base64 = ?, input_base64 = ?',
-            [drawImageId, chunkData, inputChunkData || '', chunkData, inputChunkData || '']
-          );
-        } else {
-          await query(
-            'INSERT INTO temp_image_data (draw_image_id, output_base64) VALUES (?, ?) ON DUPLICATE KEY UPDATE output_base64 = ?',
-            [drawImageId, chunkData, chunkData]
-          );
-        }
-      } else {
-        if (isEdit) {
-          await query(
-            'UPDATE temp_image_data SET output_base64 = CONCAT(output_base64, ?), input_base64 = CONCAT(input_base64, ?) WHERE draw_image_id = ?',
-            [chunkData, inputChunkData || '', drawImageId]
-          );
-        } else {
-          await query(
-            'UPDATE temp_image_data SET output_base64 = CONCAT(output_base64, ?) WHERE draw_image_id = ?',
-            [chunkData, drawImageId]
-          );
-        }
-      }
-
-      // If it's the last chunk, trigger Freeimage upload and DB update
-      if (chunkIndex === totalChunks - 1) {
-        console.log(`[TImage Persist Chunk] All chunks received for ID: ${drawImageId}. Starting Freeimage upload...`);
-        const rows = await query('SELECT output_base64, input_base64 FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
-        if (!rows || rows.length === 0) {
-          return res.status(404).json({ success: false, error: 'Temp record not found' });
-        }
-
-        const record = rows[0];
-        const imageUrl = record.output_base64;
-        const inputImageUrl = record.input_base64;
-
-        let permanentOutputUrl = 'temp_placeholder';
-        let permanentDisplayUrl = 'temp_placeholder';
-
-        if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
-          const filename = `generated_${Date.now()}.png`;
-          if (imageUrl.startsWith('data:')) {
-            const parts = imageUrl.split(';base64,');
-            const mimeType = parts[0].split(':')[1] || 'image/png';
-            const b64Data = parts[1];
-            const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-            permanentOutputUrl = uploadResult.url;
-            permanentDisplayUrl = uploadResult.displayUrl;
-          } else {
-            const uploadResult = await processAndUploadImageUrl(imageUrl, filename);
-            permanentOutputUrl = uploadResult.url;
-            permanentDisplayUrl = uploadResult.displayUrl;
-          }
-        }
-
-        let permanentInputUrl = null;
-        let permanentInputDisplayUrl = null;
-
-        if (inputImageUrl && inputImageUrl.startsWith('data:')) {
-          const parts = inputImageUrl.split(';base64,');
-          const mimeType = parts[0].split(':')[1] || 'image/png';
-          const b64Data = parts[1];
-          const filename = `input_${Date.now()}.png`;
-          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-          permanentInputUrl = uploadResult.url;
-          permanentInputDisplayUrl = uploadResult.displayUrl;
-        }
-
-        if (permanentInputUrl) {
-          await query(
-            'UPDATE draw_images SET sketch_url = ?, generated_url = ?, display_url = ? WHERE id = ?',
-            [permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, drawImageId]
-          );
-        } else {
-          await query(
-            'UPDATE draw_images SET generated_url = ?, display_url = ? WHERE id = ?',
-            [permanentOutputUrl, permanentDisplayUrl, drawImageId]
-          );
-        }
-
-        await query('DELETE FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
-        console.log(`[TImage Persist Chunk] Successfully persisted ID: ${drawImageId}`);
-        return res.json({ success: true, freeimageUrl: permanentDisplayUrl, originalUrl: permanentOutputUrl });
-      }
-
-      return res.json({ success: true, chunkReceived: chunkIndex });
-    }
 
     else if (action === 'history') {
       const { email, limit = 15, offset = 0 } = req.body;

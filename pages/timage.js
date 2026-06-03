@@ -228,41 +228,6 @@ export default function TImage() {
     }
   };
 
-  const asyncPersistBase64 = async (drawImageId, email, base64Url, isEdit = false, inputBase64 = null) => {
-    try {
-      // Chunk size of ~2MB to comfortably stay under Vercel's 4.5MB limit
-      const chunkSize = 2 * 1024 * 1024; 
-      const chunks = [];
-      for (let i = 0; i < base64Url.length; i += chunkSize) {
-        chunks.push(base64Url.slice(i, i + chunkSize));
-      }
-      
-      let inputChunks = [];
-      if (isEdit && inputBase64) {
-        for (let i = 0; i < inputBase64.length; i += chunkSize) {
-          inputChunks.push(inputBase64.slice(i, i + chunkSize));
-        }
-      }
-
-      const totalChunks = Math.max(chunks.length, inputChunks.length || 1);
-
-      for (let i = 0; i < totalChunks; i++) {
-        await axios.post('/api/timage/persist_chunk', {
-          drawImageId,
-          chunkIndex: i,
-          totalChunks: totalChunks,
-          chunkData: chunks[i] || '',
-          isEdit,
-          inputChunkData: inputChunks[i] || ''
-        });
-      }
-      // Reload history silently when the background upload finishes
-      loadHistory(email);
-    } catch (e) {
-      console.error("Chunk persist failed", e);
-    }
-  };
-
   // Mock recharging for premium experience
   const handleRecharge = async () => {
     if (emailStatus !== 'verified') return;
@@ -418,9 +383,8 @@ export default function TImage() {
                   return updated;
                 });
                 
-                // Asynchronously persist to Freeimage via chunking to bypass payload limits
-                if (email && res.data.drawImageId) {
-                  asyncPersistBase64(res.data.drawImageId, email, res.data.freeimageUrl);
+                if (email) {
+                  loadHistory(email);
                 }
 
                 return item;
@@ -482,10 +446,7 @@ export default function TImage() {
             setDisplayUrl(out.displayUrl);
             setCredits(response.data.credits);
 
-            // Asynchronously persist to Freeimage via chunking to bypass payload limits
-            if (email && response.data.drawImageId) {
-              asyncPersistBase64(response.data.drawImageId, email, response.data.freeimageUrl);
-            } else {
+            if (email) {
               loadHistory(email);
             }
           }
@@ -519,9 +480,7 @@ export default function TImage() {
           setDisplayUrl(out.displayUrl);
           setCredits(response.data.credits);
           
-          if (email && response.data.drawImageId) {
-            asyncPersistBase64(response.data.drawImageId, email, response.data.freeimageUrl, true, response.data.originalInputB64);
-          } else {
+          if (email) {
             loadHistory(email);
           }
         }
