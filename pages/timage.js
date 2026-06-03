@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import Head from 'next/head';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
+import Header from '../components/Header';
 
 const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
   ssr: false
@@ -146,7 +147,6 @@ export default function TImage() {
   const [emailStatus, setEmailStatus] = useState('none'); // none | verified
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [showRechargeModal, setShowRechargeModal] = useState(false);
 
   // History gallery states
   const [historyList, setHistoryList] = useState([]);
@@ -228,21 +228,6 @@ export default function TImage() {
     }
   };
 
-  // Mock recharging for premium experience
-  const handleRecharge = async () => {
-    if (emailStatus !== 'verified') return;
-    try {
-      // Direct reward +50 credits for seamless user workflow
-      setInfoMessage('🎉 体验特惠：已成功免费申请 100 额度！');
-      const updatedCredits = credits + 100;
-      setCredits(updatedCredits);
-      // Wait a moment then dismiss the alert
-      setTimeout(() => setInfoMessage(''), 4000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleFileChange = (e, index) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -275,12 +260,6 @@ export default function TImage() {
       setImage2Preview(null);
       if (fileInputRef2.current) fileInputRef2.current.value = '';
     }
-  };
-
-  const handleCopyLink = () => {
-    if (!generatedUrl) return;
-    navigator.clipboard.writeText(generatedUrl);
-    alert('已成功复制图片永久链接到剪贴板！');
   };
 
   const handleOptimizePrompt = async () => {
@@ -505,46 +484,17 @@ export default function TImage() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
-      {/* Header */}
-      <header className="site-header">
-        <div className="header-container">
-          <div className="logo-section">
-            <img src="/timage.png" alt="天工创界 Logo" className="logo-img" />
-            <div>
-              <h1 className="logo-title">天工创界</h1>
-              <span className="logo-tagline">旅游规划与获客 AI 智绘 Agent</span>
-            </div>
-          </div>
-
-          <div className="user-section">
-            {emailStatus === 'verified' ? (
-              <div className="user-badge">
-                <span className="user-email">✉️ {email}</span>
-                <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
-                <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
-                <button onClick={handleLogout} className="btn-logout">退出</button>
-              </div>
-            ) : (
-              <div className="login-form">
-                <input
-                  type="email"
-                  placeholder="输入邮箱登录 / 自动注册..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="login-input"
-                />
-                <button
-                  onClick={() => handleVerifyEmail(email)}
-                  disabled={isCheckingEmail}
-                  className="btn-login"
-                >
-                  {isCheckingEmail ? '登录中...' : '登录 / 注册'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header 
+        title="天工创界" 
+        subtitle="旅游规划与获客 AI 智绘 Agent"
+        email={email}
+        setEmail={setEmail}
+        emailStatus={emailStatus}
+        credits={credits}
+        isCheckingEmail={isCheckingEmail}
+        onVerifyEmail={handleVerifyEmail}
+        onLogout={handleLogout}
+      />
 
       {/* Hero */}
       <section className="hero-banner">
@@ -1144,317 +1094,8 @@ export default function TImage() {
         .gallery-img-container:hover .gallery-img { transform: scale(1.05); }
       `}</style>
 
-      {/* Recharge Modal with QR code */}
-      {showRechargeModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(11, 17, 32, 0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          animation: 'fadeIn 0.25s ease-out'
-        }} onClick={() => setShowRechargeModal(false)}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(20, 30, 55, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
-            border: '1px solid rgba(45, 212, 191, 0.3)',
-            borderRadius: '24px',
-            padding: '36px 32px',
-            maxWidth: '380px',
-            width: '90%',
-            textAlign: 'center',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 50px rgba(45, 212, 191, 0.15)',
-            position: 'relative',
-            animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          }} onClick={(e) => e.stopPropagation()}>
-            
-            {/* Close Button */}
-            <button 
-              onClick={() => setShowRechargeModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: 'none',
-                color: '#94a3b8',
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                transition: 'all 0.2s',
-                outline: 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                e.currentTarget.style.color = '#fff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                e.currentTarget.style.color = '#94a3b8';
-              }}
-            >
-              ✕
-            </button>
-
-            <h3 style={{
-              fontSize: '1.35rem',
-              color: '#fff',
-              fontWeight: '700',
-              marginBottom: '8px',
-              fontFamily: 'Outfit, sans-serif',
-              letterSpacing: '0.05em'
-            }}>
-              ⚡ 尊贵会员充值中心
-            </h3>
-            <p style={{
-              fontSize: '0.85rem',
-              color: 'rgba(248, 250, 252, 0.6)',
-              marginBottom: '28px',
-              lineHeight: '1.5'
-            }}>
-              微信扫码联系专属客服，<br />即刻到账海量算力额度！
-            </p>
-
-            <div style={{
-              background: '#fff',
-              padding: '16px',
-              borderRadius: '20px',
-              display: 'inline-block',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-              marginBottom: '24px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <img 
-                src="/contact.png" 
-                alt="充值二维码" 
-                style={{
-                  width: '210px',
-                  height: '210px',
-                  display: 'block',
-                  borderRadius: '12px'
-                }} 
-              />
-            </div>
-
-            <div style={{
-              fontSize: '0.75rem',
-              color: '#2dd4bf',
-              fontWeight: '600',
-              background: 'rgba(45, 212, 191, 0.08)',
-              border: '1px solid rgba(45, 212, 191, 0.2)',
-              padding: '8px 18px',
-              borderRadius: '30px',
-              display: 'inline-block',
-              letterSpacing: '0.05em'
-            }}>
-              🔒 官方安全渠道 · 实时人工客服支援
-            </div>
-
-          </div>
-        </div>
-      )}
-
       {/* Styled JSX (Next.js Built-in scoped CSS compiler) */}
       <style jsx global>{`
-        :root {
-          --color-bg-main: #0b1120;
-          --color-bg-card: rgba(30, 41, 59, 0.7);
-          --color-bg-card-hover: rgba(30, 41, 59, 0.95);
-          --color-primary: #0d9488;
-          --color-primary-hover: #0f766e;
-          --color-accent: #f59e0b;
-          --color-accent-hover: #d97706;
-          --color-text-main: #f8fafc;
-          --color-text-muted: #94a3b8;
-          --color-border: rgba(255, 255, 255, 0.08);
-          --font-title: 'Outfit', 'Inter', -apple-system, sans-serif;
-          --font-body: 'Inter', -apple-system, sans-serif;
-        }
-
-        body {
-          margin: 0;
-          padding: 0;
-          background-color: var(--color-bg-main);
-          color: var(--color-text-main);
-          font-family: var(--font-body);
-          -webkit-font-smoothing: antialiased;
-          background-image: 
-            radial-gradient(at 0% 0%, rgba(13, 148, 136, 0.1) 0, transparent 50%),
-            radial-gradient(at 50% 0%, rgba(245, 158, 11, 0.05) 0, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(13, 148, 136, 0.08) 0, transparent 50%);
-          background-attachment: fixed;
-        }
-
-        .app-container {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* Header Style */
-        .site-header {
-          background-color: rgba(15, 23, 42, 0.8);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--color-border);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        .header-container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 0.85rem 1.5rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .logo-section {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .logo-icon {
-          font-size: 2.25rem;
-          filter: drop-shadow(0 0 8px rgba(13, 148, 136, 0.5));
-        }
-
-        .logo-img {
-          width: 38px;
-          height: 38px;
-          object-fit: contain;
-          border-radius: 8px;
-          filter: drop-shadow(0 0 8px rgba(13, 148, 136, 0.4));
-        }
-
-        .logo-title {
-          font-family: var(--font-title);
-          font-size: 1.5rem;
-          font-weight: 700;
-          margin: 0;
-          line-height: 1;
-          letter-spacing: -0.025em;
-          background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .logo-tagline {
-          font-size: 0.75rem;
-          color: var(--color-text-muted);
-          font-weight: 500;
-          letter-spacing: 0.05em;
-        }
-
-        .user-section {
-          display: flex;
-          align-items: center;
-        }
-
-        .login-form {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .login-input {
-          background-color: rgba(15, 23, 42, 0.6);
-          border: 1px solid var(--color-border);
-          border-radius: 8px;
-          padding: 0.5rem 0.85rem;
-          color: var(--color-text-main);
-          font-size: 0.85rem;
-          width: 220px;
-          transition: all 0.3s ease;
-        }
-
-        .login-input:focus {
-          outline: none;
-          border-color: var(--color-primary);
-          box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
-        }
-
-        .btn-login {
-          background-color: var(--color-primary);
-          color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 0.5rem 1.15rem;
-          font-weight: 600;
-          font-size: 0.85rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-
-        .btn-login:hover {
-          background-color: var(--color-primary-hover);
-          transform: translateY(-1px);
-        }
-
-        .user-badge {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          background: rgba(13, 148, 136, 0.08);
-          border: 1px solid rgba(13, 148, 136, 0.3);
-          border-radius: 8px;
-          padding: 0.4rem 0.85rem;
-          font-size: 0.85rem;
-        }
-
-        .user-email {
-          font-weight: 500;
-          color: #2dd4bf;
-        }
-
-        .user-credits {
-          color: var(--color-text-main);
-          border-left: 1px solid rgba(255, 255, 255, 0.15);
-          padding-left: 0.75rem;
-        }
-
-        .btn-recharge {
-          background-color: var(--color-accent);
-          color: #0b1120;
-          border: none;
-          border-radius: 6px;
-          padding: 0.25rem 0.65rem;
-          font-weight: 700;
-          font-size: 0.75rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-recharge:hover {
-          background-color: var(--color-accent-hover);
-          transform: translateY(-1px);
-        }
-
-        .btn-logout {
-          background: transparent;
-          border: none;
-          color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 0.85rem;
-          padding: 0.25rem 0.5rem;
-          transition: color 0.2s ease;
-        }
-
-        .btn-logout:hover {
-          color: #f1f5f9;
-        }
 
         /* Hero Banner */
         .hero-banner {

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import Head from 'next/head';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
+import Header from '../components/Header';
 
 const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
   ssr: false
@@ -35,7 +36,6 @@ export default function MultiImage() {
   const [emailStatus, setEmailStatus] = useState('none');
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -250,47 +250,25 @@ export default function MultiImage() {
     <div className="app-container">
       <Head>
         <title>天工创界 | 智能分镜批量多图生成</title>
+        <meta name="description" content="智能分镜批量多图生成引擎" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/tg-192.png" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
       
-      {/* Header */}
-      <header className="site-header">
-        <div className="header-container">
-          <div className="logo-section">
-            <div>
-              <h1 className="logo-title">天工创界 | 多图智能生成引擎</h1>
-            </div>
-          </div>
-
-          <div className="user-section">
-            {emailStatus === 'verified' ? (
-              <div className="user-badge">
-                <span className="user-email">✉️ {email}</span>
-                <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
-                <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
-                <button onClick={handleLogout} className="btn-logout">退出</button>
-              </div>
-            ) : (
-              <div className="login-form">
-                <input
-                  type="email"
-                  placeholder="输入邮箱登录 / 自动注册..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="login-input"
-                />
-                <button
-                  onClick={() => handleVerifyEmail(email)}
-                  disabled={isCheckingEmail}
-                  className="btn-login"
-                >
-                  {isCheckingEmail ? '登录中...' : '登录 / 注册'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header 
+        title="天工创界" 
+        subtitle="多图智能生成引擎"
+        email={email}
+        setEmail={setEmail}
+        emailStatus={emailStatus}
+        credits={credits}
+        isCheckingEmail={isCheckingEmail}
+        onVerifyEmail={handleVerifyEmail}
+        onLogout={handleLogout}
+      />
 
 
       <div className="main-content">
@@ -540,7 +518,7 @@ export default function MultiImage() {
         .result-img-wrapper:hover .result-img { transform: scale(1.05) !important; }
         .gallery-img-container:hover .preview-overlay { opacity: 1 !important; }
         .gallery-img-container:hover .gallery-img { transform: scale(1.05); }
-        .app-container { max-width: 1200px; margin: 0 auto; padding: 2rem; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .main-content { max-width: 1200px; margin: 0 auto; padding: 2rem; width: 100%; box-sizing: border-box; }
         .header { text-align: center; margin-bottom: 2rem; }
         .title { font-size: 2rem; background: linear-gradient(to right, #2dd4bf, #3b82f6); -webkit-background-clip: text; color: transparent; }
         .subtitle { color: #94a3b8; }
@@ -580,19 +558,6 @@ export default function MultiImage() {
         .result-error { height: 250px; display: flex; align-items: center; justify-content: center; color: #ef4444; }
         .result-img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
         .result-desc { padding: 1rem; font-size: 0.85rem; color: #94a3b8; margin: 0; background: #1e293b; }
-
-        .site-header { background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 100; margin-bottom: 2rem;}
-        .header-container { max-width: 1400px; margin: 0 auto; padding: 0.85rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
-        .logo-title { font-size: 1.5rem; font-weight: 700; margin: 0; background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .user-section { display: flex; align-items: center; }
-        .login-form { display: flex; gap: 0.5rem; }
-        .login-input { background-color: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.5rem 0.85rem; color: #fff; }
-        .btn-login { background-color: #0d9488; color: white; border: none; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
-        .user-badge { display: flex; align-items: center; gap: 0.75rem; background: rgba(13, 148, 136, 0.08); border: 1px solid rgba(13, 148, 136, 0.3); border-radius: 8px; padding: 0.4rem 0.85rem; font-size: 0.85rem; }
-        .user-email { font-weight: 500; color: #2dd4bf; }
-        .user-credits { color: #f8fafc; border-left: 1px solid rgba(255, 255, 255, 0.15); padding-left: 0.75rem; }
-        .btn-recharge { background-color: #f59e0b; color: #0b1120; border: none; border-radius: 6px; padding: 0.25rem 0.65rem; font-weight: 700; cursor: pointer; }
-        .btn-logout { background: transparent; border: none; color: #94a3b8; cursor: pointer; }
         .gallery-section { margin-top: 3rem; }
         .gallery-header { margin-bottom: 2rem; }
         .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
