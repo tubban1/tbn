@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     const apiKey = process.env.VECTORENGINE_API_KEY;
     const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-    
+
     // We can use a fast model like gpt-4o-mini or gemini-1.5-flash for text extraction
     const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
 
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     }
 
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
-Your task is to analyze the user's provided long text, story, or article, and split it into logical visual scenes (maximum 6 scenes to prevent overloading).
+Your task is to analyze the user's provided long text, story, or article, and split it into logical visual scenes (maximum 12 scenes to prevent overloading).
 For each scene, extract the core action/visual and write a highly detailed, professional English Midjourney/Stable Diffusion prompt.
 Also provide a short Chinese description of what the scene is about.
 
@@ -96,9 +96,9 @@ Format:
 
   } catch (error) {
     console.error('[Extract Scenes Error]', error.response?.data || error.message);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.response?.data?.error?.message || error.message || 'Server Error' 
+    return res.status(500).json({
+      success: false,
+      error: error.response?.data?.error?.message || error.message || 'Server Error'
     });
   }
 }
