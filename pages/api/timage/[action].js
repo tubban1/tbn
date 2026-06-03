@@ -318,15 +318,6 @@ export default async function handler(req, res) {
           console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
           const savedImage = await saveDrawImagePair(email, 'text-to-image', permanentOutputUrl, permanentDisplayUrl, 'text', prompt);
           drawImageId = savedImage?.id || null;
-
-          if (drawImageId && freeimageUrl) {
-            // Store the 5MB Base64 temporarily in the temp_image_data table
-            // This prevents Vercel payload limit issues while keeping the main table clean!
-            await query(
-              'INSERT INTO temp_image_data (draw_image_id, output_base64) VALUES (?, ?)',
-              [drawImageId, freeimageUrl]
-            );
-          }
         } catch (dbErr) {
           console.error('[TImage] Failed to update credits/save generation record to DB:', dbErr.message);
         }
@@ -344,76 +335,101 @@ export default async function handler(req, res) {
       });
     }
 
-    else if (action === 'persist') {
-      const { drawImageId } = req.body;
-      if (!drawImageId) {
-        return res.status(400).json({ success: false, error: 'drawImageId is required' });
-      }
+    else if (action === 'persist_chunk') {
+      const { drawImageId, chunkIndex, totalChunks, chunkData, isEdit, inputChunkData } = req.body;
+      if (!drawImageId) return res.status(400).json({ success: false, error: 'drawImageId is required' });
 
-      console.log(`[TImage Persist] Starting background persist for ID: ${drawImageId}`);
+      console.log(`[TImage Persist Chunk] ID: ${drawImageId}, Chunk: ${chunkIndex + 1}/${totalChunks}`);
 
-      // Fetch base64 data directly from temp table
-      const rows = await query('SELECT output_base64, input_base64 FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
-      if (!rows || rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Temp record not found or already processed' });
-      }
-
-      const record = rows[0];
-      const imageUrl = record.output_base64;
-      const inputImageUrl = record.input_base64;
-
-      // 1. Upload generated output image
-      let permanentOutputUrl = 'temp_placeholder';
-      let permanentDisplayUrl = 'temp_placeholder';
-
-      if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
-        const filename = `generated_${Date.now()}.png`;
-        if (imageUrl.startsWith('data:')) {
-          const parts = imageUrl.split(';base64,');
-          const mimeType = parts[0].split(':')[1];
-          const b64Data = parts[1];
-          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-          permanentOutputUrl = uploadResult.url;
-          permanentDisplayUrl = uploadResult.displayUrl;
+      // Save chunks to temp_image_data
+      if (chunkIndex === 0) {
+        if (isEdit) {
+          await query(
+            'INSERT INTO temp_image_data (draw_image_id, output_base64, input_base64) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE output_base64 = ?, input_base64 = ?',
+            [drawImageId, chunkData, inputChunkData || '', chunkData, inputChunkData || '']
+          );
         } else {
-          const uploadResult = await processAndUploadImageUrl(imageUrl, filename);
-          permanentOutputUrl = uploadResult.url;
-          permanentDisplayUrl = uploadResult.displayUrl;
+          await query(
+            'INSERT INTO temp_image_data (draw_image_id, output_base64) VALUES (?, ?) ON DUPLICATE KEY UPDATE output_base64 = ?',
+            [drawImageId, chunkData, chunkData]
+          );
+        }
+      } else {
+        if (isEdit) {
+          await query(
+            'UPDATE temp_image_data SET output_base64 = CONCAT(output_base64, ?), input_base64 = CONCAT(input_base64, ?) WHERE draw_image_id = ?',
+            [chunkData, inputChunkData || '', drawImageId]
+          );
+        } else {
+          await query(
+            'UPDATE temp_image_data SET output_base64 = CONCAT(output_base64, ?) WHERE draw_image_id = ?',
+            [chunkData, drawImageId]
+          );
         }
       }
 
-      // 2. Upload input image if present
-      let permanentInputUrl = null;
-      let permanentInputDisplayUrl = null;
+      // If it's the last chunk, trigger Freeimage upload and DB update
+      if (chunkIndex === totalChunks - 1) {
+        console.log(`[TImage Persist Chunk] All chunks received for ID: ${drawImageId}. Starting Freeimage upload...`);
+        const rows = await query('SELECT output_base64, input_base64 FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
+        if (!rows || rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Temp record not found' });
+        }
 
-      if (inputImageUrl && inputImageUrl.startsWith('data:')) {
-        const parts = inputImageUrl.split(';base64,');
-        const mimeType = parts[0].split(':')[1];
-        const b64Data = parts[1];
-        const filename = `input_${Date.now()}.png`;
-        const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
-        permanentInputUrl = uploadResult.url;
-        permanentInputDisplayUrl = uploadResult.displayUrl;
+        const record = rows[0];
+        const imageUrl = record.output_base64;
+        const inputImageUrl = record.input_base64;
+
+        let permanentOutputUrl = 'temp_placeholder';
+        let permanentDisplayUrl = 'temp_placeholder';
+
+        if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
+          const filename = `generated_${Date.now()}.png`;
+          if (imageUrl.startsWith('data:')) {
+            const parts = imageUrl.split(';base64,');
+            const mimeType = parts[0].split(':')[1] || 'image/png';
+            const b64Data = parts[1];
+            const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+            permanentOutputUrl = uploadResult.url;
+            permanentDisplayUrl = uploadResult.displayUrl;
+          } else {
+            const uploadResult = await processAndUploadImageUrl(imageUrl, filename);
+            permanentOutputUrl = uploadResult.url;
+            permanentDisplayUrl = uploadResult.displayUrl;
+          }
+        }
+
+        let permanentInputUrl = null;
+        let permanentInputDisplayUrl = null;
+
+        if (inputImageUrl && inputImageUrl.startsWith('data:')) {
+          const parts = inputImageUrl.split(';base64,');
+          const mimeType = parts[0].split(':')[1] || 'image/png';
+          const b64Data = parts[1];
+          const filename = `input_${Date.now()}.png`;
+          const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+          permanentInputUrl = uploadResult.url;
+          permanentInputDisplayUrl = uploadResult.displayUrl;
+        }
+
+        if (permanentInputUrl) {
+          await query(
+            'UPDATE draw_images SET sketch_url = ?, generated_url = ?, display_url = ? WHERE id = ?',
+            [permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, drawImageId]
+          );
+        } else {
+          await query(
+            'UPDATE draw_images SET generated_url = ?, display_url = ? WHERE id = ?',
+            [permanentOutputUrl, permanentDisplayUrl, drawImageId]
+          );
+        }
+
+        await query('DELETE FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
+        console.log(`[TImage Persist Chunk] Successfully persisted ID: ${drawImageId}`);
+        return res.json({ success: true, freeimageUrl: permanentDisplayUrl, originalUrl: permanentOutputUrl });
       }
 
-      // 3. Update database record with URLs
-      if (permanentInputUrl) {
-        await query(
-          'UPDATE draw_images SET sketch_url = ?, generated_url = ?, display_url = ? WHERE id = ?',
-          [permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, drawImageId]
-        );
-      } else {
-        await query(
-          'UPDATE draw_images SET generated_url = ?, display_url = ? WHERE id = ?',
-          [permanentOutputUrl, permanentDisplayUrl, drawImageId]
-        );
-      }
-
-      // 4. Cleanup temp table
-      await query('DELETE FROM temp_image_data WHERE draw_image_id = ?', [drawImageId]);
-
-      console.log(`[TImage Persist] Successfully persisted ID: ${drawImageId} -> Output: ${permanentOutputUrl}, Display: ${permanentDisplayUrl}`);
-      return res.json({ success: true, freeimageUrl: permanentDisplayUrl, originalUrl: permanentOutputUrl });
+      return res.json({ success: true, chunkReceived: chunkIndex });
     }
 
     else if (action === 'history') {

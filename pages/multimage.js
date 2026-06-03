@@ -97,6 +97,27 @@ export default function MultiImage() {
     }
   };
 
+  const asyncPersistBase64 = async (drawImageId, email, base64Url) => {
+    try {
+      const chunkSize = 2 * 1024 * 1024; 
+      const chunks = [];
+      for (let i = 0; i < base64Url.length; i += chunkSize) {
+        chunks.push(base64Url.slice(i, i + chunkSize));
+      }
+      
+      for (let i = 0; i < chunks.length; i++) {
+        await axios.post('/api/timage/persist_chunk', {
+          drawImageId,
+          chunkIndex: i,
+          totalChunks: chunks.length,
+          chunkData: chunks[i]
+        });
+      }
+    } catch (e) {
+      console.error("Chunk persist failed", e);
+    }
+  };
+
 
   // Parse long text into scenes
   const handleExtractScenes = async () => {
@@ -154,8 +175,7 @@ export default function MultiImage() {
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
             if (email && res.data.drawImageId) {
-              axios.post('/api/timage/persist', { drawImageId: res.data.drawImageId })
-                .catch(err => console.error("Persist failed", err));
+              asyncPersistBase64(res.data.drawImageId, email, res.data.freeimageUrl);
             }
           } else {
             updateResult(idx, 'error');
@@ -170,8 +190,7 @@ export default function MultiImage() {
           if (res.data?.success) {
             updateResult(idx, res.data.freeimageUrl);
             if (email && res.data.drawImageId) {
-              axios.post('/api/timage/persist', { drawImageId: res.data.drawImageId })
-                .catch(err => console.error("Persist failed", err));
+              asyncPersistBase64(res.data.drawImageId, email, res.data.freeimageUrl);
             }
           } else {
             updateResult(idx, 'error');

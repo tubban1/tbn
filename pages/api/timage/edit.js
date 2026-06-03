@@ -173,14 +173,6 @@ export default async function handler(req, res) {
         console.log(`[TImage] Saving edited image record to DB for email: ${email}`);
         const savedImage = await saveDrawImagePair(email, permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, 'edit', prompt);
         drawImageId = savedImage?.id || null;
-
-        if (drawImageId && freeimageUrl) {
-          // Store the 5MB Base64 temporarily in the temp_image_data table
-          await query(
-            'INSERT INTO temp_image_data (draw_image_id, input_base64, output_base64) VALUES (?, ?, ?)',
-            [drawImageId, originalInputB64, freeimageUrl]
-          );
-        }
       } catch (dbErr) {
         console.error('[TImage] Failed to update credits/save edit record to DB:', dbErr.message);
       }
