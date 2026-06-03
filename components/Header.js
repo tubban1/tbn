@@ -147,7 +147,7 @@ export default function Header({
               display: 'inline-block',
               boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
             }}>
-              <img src="/contact.jpg" alt="客服微信二维码" style={{
+              <img src="/contact.png" alt="客服微信二维码" style={{
                 width: '180px',
                 height: '180px',
                 display: 'block',
@@ -160,7 +160,7 @@ export default function Header({
               fontSize: '0.8rem', 
               color: 'rgba(148, 163, 184, 0.6)',
               fontWeight: '500'
-            }}>微信号: tg_agent_support</div>
+            }}>微信号: UA5201314fyh</div>
           </div>
         </div>
       )}
