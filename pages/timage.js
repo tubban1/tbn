@@ -28,8 +28,8 @@ export default function TImage() {
           recommendSize: '1024x1792',
           aspectRatio: '9:16',
           desc: '生成唯美目的地组合图与行程日程版式，适合小红书/朋友圈分享。',
-          defaultPrompt: 'A beautiful and highly detailed travel itinerary infographic for [destination], showcasing the highlight spots: [highlights]. Romantic watercolor travel guide layout with soft labels, elegant composition, high resolution.',
-          placeholderHighlights: 'historical temples, local food street, scenic river cruise'
+          defaultPrompt: '一份精美且高度细节的[destination]旅游攻略信息图，展示以下核心景点：[highlights]。浪漫水彩手绘风旅游指南排版，柔和的标签设计，优雅的构图，高分辨率，唯美氛围。',
+          placeholderHighlights: '历史古刹，当地小吃街，绝美游船夜景'
         },
         {
           id: 'poster',
@@ -37,7 +37,7 @@ export default function TImage() {
           recommendSize: '1024x1365',
           aspectRatio: '3:4',
           desc: '生成极具视觉冲击力的海报背景图，顶部留白，适合添加定制文案。',
-          defaultPrompt: 'An exquisite, high-end travel poster advertising [destination]. [vibe] style, professional travel photography, clear blank space at the top for travel text, stunning golden hour lighting, cinematic atmosphere, 8k resolution.'
+          defaultPrompt: '一张极其精致的高端旅游海报，宣传[destination]。[vibe]风格，专业旅游摄影级别，顶部留白以便添加定制旅游文案，令人惊叹的黄金时刻光影，电影感氛围，8k超高分辨率。'
         },
         {
           id: 'social',
@@ -45,7 +45,7 @@ export default function TImage() {
           recommendSize: '1024x1024',
           aspectRatio: '1:1',
           desc: '色彩明亮饱和、细节丰满的图文种草配图，符合主流分享平台的审美。',
-          defaultPrompt: 'Vibrant social media lifestyle photo featuring [destination]. Bright warm summer colors, aesthetic composition, capturing the essence of local culture, popular travel blog aesthetic, highly engaging visual.'
+          defaultPrompt: '生动充满活力的社交媒体生活方式照片，展现[destination]的魅力。明亮温暖的夏日色彩，充满美感的构图，捕捉当地文化精髓，流行旅游博主审美，极具吸引力的视觉效果，清晰明亮。'
         }
       ]
     },
@@ -60,7 +60,7 @@ export default function TImage() {
           recommendSize: '1792x1024',
           aspectRatio: '16:9',
           desc: '描绘仙境般、未来感或概念化的目的地风光，展示核心设计愿景。',
-          defaultPrompt: 'Breathtaking high-fidelity visual concept art of [destination], reimagined as a fairytale paradise, ethereal lighting, misty clouds, epic landscape design, masterpiece, award-winning concept art.'
+          defaultPrompt: '令人窒息的高保真[destination]视觉概念艺术设计图，被重新构建为童话般的仙境，空灵的灯光，薄雾缭绕的云海，史诗般的景观设计，绝美神作，屡获殊荣的数字概念艺术。'
         },
         {
           id: 'season',
@@ -68,7 +68,7 @@ export default function TImage() {
           recommendSize: '1024x768',
           aspectRatio: '4:3',
           desc: '模拟相同场景在不同季节（春夏秋冬）或时间（晨昏夜色）的光影演变。',
-          defaultPrompt: 'A comparison visual landscape of [destination] showing the seamless transition of [time_season] scenery. Incredible details, contrasting atmospheres, unified composition, masterpiece.'
+          defaultPrompt: '一张完美的[destination]对比风景图，展现出[time_season]风景的无缝过渡。令人难以置信的丰富细节，充满对比的氛围光影，统一的构图，顶级大师之作。'
         },
         {
           id: 'hotel',
@@ -76,7 +76,7 @@ export default function TImage() {
           recommendSize: '1792x1024',
           aspectRatio: '16:9',
           desc: '展现高端奢华的客房光影或庭院细节，窗外融合目的地绝美风景。',
-          defaultPrompt: 'Luxury boutique hotel interior with a view of [destination] outside the floor-to-ceiling windows. [vibe] interior design, soft ambient lighting, cozy luxury aesthetic, architectural digest style, realistic photo.'
+          defaultPrompt: '奢华精品酒店的室内设计，透过落地窗可以看到外面[destination]的绝美风景。[vibe]的室内设计风格，柔和的氛围灯光，舒适奢华的美学，顶级建筑设计杂志风格，照片级真实感。'
         }
       ]
     },
@@ -91,7 +91,7 @@ export default function TImage() {
           recommendSize: '1024x1365',
           aspectRatio: '3:4',
           desc: '一键将游客上传的底图人物，无缝融合融入到目的地的风景名胜风光中。',
-          defaultPrompt: 'A gorgeous travel portrait, tourist seamlessly blended into the breathtaking landscape of [destination] at golden hour, shallow depth of field, professional travel portrait photography, harmonious lighting, aesthetic.'
+          defaultPrompt: '一张极其华丽的旅游肖像照，游客完美无瑕地融入到黄金时刻[destination]令人惊叹的风景中，浅景深虚化背景，专业旅行人像摄影，和谐完美的光影匹配，高级唯美感。'
         },
         {
           id: 'route',
@@ -99,7 +99,7 @@ export default function TImage() {
           recommendSize: '1024x768',
           aspectRatio: '4:3',
           desc: '为定制路书、电子行程单设计的地标性手绘、扁平或写实插画。',
-          defaultPrompt: 'An elegant scenic illustration of [destination] for a travel guidebook. Flat art style, beautiful vectors, clean lines, serene colors, professional travel illustration.'
+          defaultPrompt: '专为高端旅游路书设计的[destination]优雅风景插画。扁平化艺术风格，精美的矢量设计，干净流畅的线条，宁静柔和的色彩，专业旅游插画，充满文艺气息。'
         }
       ]
     }
@@ -107,10 +107,10 @@ export default function TImage() {
 
   // States
   const [selectedType, setSelectedType] = useState(travelCategories[0].types[0]);
-  const [destination, setDestination] = useState('九寨沟 (Jiuzhaigou)');
+  const [destination, setDestination] = useState('九寨沟');
   const [highlights, setHighlights] = useState('碧绿海子、五彩池、珍珠滩瀑布');
-  const [vibe, setVibe] = useState('cinematic warm');
-  const [season, setSeason] = useState('Misty Autumn morning');
+  const [vibe, setVibe] = useState('电影胶片氛围');
+  const [season, setSeason] = useState('日落黄金时刻');
 
   // Basic states
   const [prompt, setPrompt] = useState('');
@@ -302,7 +302,7 @@ export default function TImage() {
         setOptimizedResults(results);
         if (results.length > 0) {
           setSelectedOptimizedIndexes([0]); // Default to selecting the first prompt card
-          setPrompt(results[0].prompt);    // Sync first prompt to main text area
+          setPrompt(results[0].promptZh || results[0].prompt);    // Sync first prompt to main text area
         } else {
           setSelectedOptimizedIndexes([]);
         }
@@ -356,7 +356,7 @@ export default function TImage() {
       if (!image1) {
         if (isBatchMode) {
           // BATCH GENERATION FLOW
-          const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].prompt);
+          const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].promptZh || optimizedResults[idx].prompt);
           console.log(`[TImage Batch] Starting parallel batch generation for ${batchPrompts.length} prompts`);
 
           // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
@@ -633,11 +633,11 @@ export default function TImage() {
                     onChange={(e) => setVibe(e.target.value)}
                     className="param-select"
                   >
-                    <option value="cinematic warm and cozy">电影胶片氛围 (Cinematic Film)</option>
-                    <option value="National Geographic realism, award-winning photography">风光纪录片真实质感 (Geographic Realism)</option>
-                    <option value="anime style, soft lighting, Kyoto Animation vibe">日系治愈动漫 (Anime Style)</option>
-                    <option value="delicate watercolor illustration, dreamy paper texture">唯美手绘水彩 (Watercolor Illustration)</option>
-                    <option value="cyberpunk neon, glowing volumetric light, futuristic style">赛博朋克霓虹 (Cyberpunk Futuristic)</option>
+                    <option value="电影胶片氛围">电影胶片氛围 (Cinematic Film)</option>
+                    <option value="风光纪录片真实质感">风光纪录片真实质感 (Geographic Realism)</option>
+                    <option value="日系治愈动漫风">日系治愈动漫 (Anime Style)</option>
+                    <option value="唯美手绘水彩插画">唯美手绘水彩 (Watercolor Illustration)</option>
+                    <option value="赛博朋克霓虹风">赛博朋克霓虹 (Cyberpunk Futuristic)</option>
                   </select>
                 </div>
 
@@ -648,11 +648,11 @@ export default function TImage() {
                     onChange={(e) => setSeason(e.target.value)}
                     className="param-select"
                   >
-                    <option value="Golden hour sunset lighting">日落黄金时刻 (Golden Hour)</option>
-                    <option value="Misty spring morning with light fog">迷雾暖春清晨 (Misty Morning)</option>
-                    <option value="Snowy winter night with warm glowing streetlights">浪漫银冬雪夜 (Snowy Winter Night)</option>
-                    <option value="Midsummer starry sky with milky way and fireflies">盛夏璀璨星空 (Midsummer Starry Sky)</option>
-                    <option value="Autumn evening with cherry-red maple leaves and soft backlight">金秋枫红晚霞 (Autumn Maple sunset)</option>
+                    <option value="日落黄金时刻">日落黄金时刻 (Golden Hour)</option>
+                    <option value="迷雾暖春清晨">迷雾暖春清晨 (Misty Morning)</option>
+                    <option value="浪漫银冬雪夜">浪漫银冬雪夜 (Snowy Winter Night)</option>
+                    <option value="盛夏璀璨星空">盛夏璀璨星空 (Midsummer Starry Sky)</option>
+                    <option value="金秋枫红晚霞">金秋枫红晚霞 (Autumn Maple sunset)</option>
                   </select>
                 </div>
               </div>
