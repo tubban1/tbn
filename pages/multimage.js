@@ -151,19 +151,18 @@ export default function MultiImage() {
           
           const res = await axios.post('/api/timage/edit', formData);
           if (res.data?.success) {
-            updateResult(idx, res.data.freeimageUrl);
+            updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
           } else {
             updateResult(idx, 'error');
           }
         } else {
-          // Mode 1: Text to Image (Unified Style)
           const res = await axios.post('/api/timage/generate', {
             prompt: scene.prompt,
             size: '1024x1024',
             email
           });
           if (res.data?.success) {
-            updateResult(idx, res.data.freeimageUrl);
+            updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
           } else {
             updateResult(idx, 'error');
           }
@@ -212,7 +211,7 @@ export default function MultiImage() {
         
         const res = await axios.post('/api/timage/edit', formData);
         if (res.data?.success) {
-          updateResult(idx, res.data.freeimageUrl);
+          updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
         } else {
           updateResult(idx, 'error');
         }
@@ -223,7 +222,7 @@ export default function MultiImage() {
           email
         });
         if (res.data?.success) {
-          updateResult(idx, res.data.freeimageUrl);
+          updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
         } else {
           updateResult(idx, 'error');
         }
@@ -467,7 +466,7 @@ export default function MultiImage() {
                   <div key={item.id} className="gallery-card">
                     <div className="gallery-img-container" style={{ position: 'relative' }}>
                       <a href={item.generated_url} target="_blank" rel="noreferrer" style={{ display: 'block', position: 'relative' }}>
-                        <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" style={{ transition: 'transform 0.3s ease' }} />
+                        <img src={item.generated_url} alt={item.style} className="gallery-img" style={{ transition: 'transform 0.3s ease' }} />
                         <div className="preview-overlay" style={{
                           position: 'absolute',
                           top: 0, left: 0, right: 0, bottom: 0,
