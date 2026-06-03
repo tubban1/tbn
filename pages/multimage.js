@@ -191,6 +191,48 @@ export default function MultiImage() {
     });
   };
 
+  const handleRetryGenerate = async (idx) => {
+    const scene = scenes[idx];
+    if (!scene) return;
+
+    // Set this specific result back to null (loading state)
+    updateResult(idx, null);
+
+    try {
+      if (activeTab === 'image') {
+        if (!baseImage) {
+          updateResult(idx, 'error');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('prompt', scene.prompt);
+        if (email) formData.append('email', email);
+        formData.append('size', '1024x1024'); // default
+        formData.append('image', baseImage);
+        
+        const res = await axios.post('/api/timage/edit', formData);
+        if (res.data?.success) {
+          updateResult(idx, res.data.freeimageUrl);
+        } else {
+          updateResult(idx, 'error');
+        }
+      } else {
+        const res = await axios.post('/api/timage/generate', {
+          prompt: scene.prompt,
+          size: '1024x1024',
+          email
+        });
+        if (res.data?.success) {
+          updateResult(idx, res.data.freeimageUrl);
+        } else {
+          updateResult(idx, 'error');
+        }
+      }
+    } catch (err) {
+      updateResult(idx, 'error');
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -354,7 +396,26 @@ export default function MultiImage() {
                        </div>
                     </div>
                   ) : res === 'error' ? (
-                    <div className="result-error">生成失败</div>
+                    <div className="result-error" style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      <span style={{ color: '#ef4444' }}>生成失败</span>
+                      <button 
+                        onClick={() => handleRetryGenerate(idx)}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid #ef4444',
+                          color: '#ef4444',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
+                        onMouseLeave={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
+                      >
+                        🔄 重新生成
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '8px' }} className="result-img-wrapper">
