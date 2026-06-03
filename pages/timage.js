@@ -905,28 +905,6 @@ export default function TImage() {
               }
             `}</style>
 
-            {/* Loading Animation Card (Always active during processing to showcase the brand's WebGL Singularity) */}
-            {isProcessing && (
-              <div className="result-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="result-header">
-                  <h3>
-                    {!image1 && selectedOptimizedIndexes.length > 1
-                      ? '🌌 天工创界 AI 并行奇点合并中...'
-                      : '🌌 AI 绘画智能视界合并中...'
-                    }
-                  </h3>
-                  <p>
-                    {!image1 && selectedOptimizedIndexes.length > 1
-                      ? `多线程并发调度中... 已交付 (${currentSessionOutputs.filter(Boolean).length}/${currentSessionOutputs.length}) 幅艺术大片，奇点引力透镜正在加速折射其余方案...`
-                      : '奇点视界重力透镜计算中，多维度艺术时空正在塌缩为高清图像物料...'
-                    }
-                  </p>
-                </div>
-                <div className="result-body-loader" style={{ marginTop: '1rem' }}>
-                  <SingularityLoader />
-                </div>
-              </div>
-            )}
 
             {/* Results Card (Renders progressively as slots fill up) */}
             {currentSessionOutputs.length > 0 && (
@@ -949,7 +927,7 @@ export default function TImage() {
                 <div className="result-body">
                   <div className="result-images-grid" style={{
                     display: 'grid',
-                    gridTemplateColumns: currentSessionOutputs.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
+                    gridTemplateColumns: currentSessionOutputs.length > 1 ? 'repeat(auto-fit, minmax(200px, 1fr))' : '1fr',
                     gap: '1.5rem',
                     width: '100%',
                     marginBottom: '1rem'
@@ -962,25 +940,20 @@ export default function TImage() {
                             background: 'rgba(15, 23, 42, 0.2)',
                             border: '2px dashed rgba(45, 212, 191, 0.25)',
                             borderRadius: '16px',
-                            padding: '32px 24px',
+                            padding: '16px',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '20px',
-                            minHeight: '430px',
+                            gap: '10px',
+                            minHeight: '260px',
                             height: '100%',
                             boxShadow: 'inset 0 0 20px rgba(45, 212, 191, 0.03)',
-                            animation: 'pulse 2s infinite ease-in-out'
+                            overflow: 'hidden'
                           }}>
-                            <div className="loader-ring" style={{
-                              width: '44px',
-                              height: '44px',
-                              borderRadius: '50%',
-                              border: '3.5px solid rgba(45, 212, 191, 0.1)',
-                              borderTop: '3.5px solid #2dd4bf',
-                              animation: 'spin 1.2s linear infinite'
-                            }}></div>
+                            <div style={{ transform: 'scale(0.35)', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <SingularityLoader />
+                            </div>
                             <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               <span style={{ fontSize: '0.85rem', color: '#2dd4bf', fontWeight: '600', letterSpacing: '0.05em' }}>
                                 画作方案 {idx + 1}
@@ -1049,54 +1022,35 @@ export default function TImage() {
                             position: 'relative',
                             borderRadius: '12px',
                             overflow: 'hidden',
-                            height: currentSessionOutputs.length > 1 ? '340px' : 'auto',
+                            height: currentSessionOutputs.length > 1 ? '260px' : 'auto',
                             maxHeight: currentSessionOutputs.length > 1 ? 'none' : '600px'
                           }}>
-                            <img src={out.displayUrl} alt={`AI output ${idx + 1}`} className="result-img" style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: currentSessionOutputs.length > 1 ? 'cover' : 'contain',
-                              borderRadius: '12px'
-                            }} />
-                          </div>
-                          <div className="result-actions" style={{
-                            display: 'flex',
-                            gap: '8px',
-                            flexWrap: 'wrap',
-                            marginTop: 'auto'
-                          }}>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                if (out.generatedUrl.startsWith('data:')) {
-                                  // For base64, open a new tab and write the image tag directly to avoid browser security blocks on data URIs
-                                  const newTab = window.open();
-                                  newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${out.generatedUrl}" style="max-width: 100%; height: auto;" /></body></html>`);
-                                  newTab.document.close();
-                                } else {
-                                  window.open(out.generatedUrl, '_blank');
-                                }
-                              }}
-                              className="btn-result-action secondary" 
-                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center', cursor: 'pointer' }}
-                            >
-                              👁️ 预览
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                const link = document.createElement('a');
-                                link.href = out.generatedUrl;
-                                link.download = `travel_${idx}_${Date.now()}.jpg`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }}
-                              className="btn-result-action secondary" 
-                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center', cursor: 'pointer' }}
-                            >
-                              💾 保存
-                            </button>
+                            <a href={out.generatedUrl} target="_blank" rel="noreferrer" style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}>
+                              <img src={out.displayUrl} alt={`AI output ${idx + 1}`} className="result-img" style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: currentSessionOutputs.length > 1 ? 'cover' : 'contain',
+                                borderRadius: '12px',
+                                transition: 'transform 0.3s ease'
+                              }} />
+                              <div className="preview-overlay" style={{
+                                position: 'absolute',
+                                top: 0, left: 0, right: 0, bottom: 0,
+                                background: 'rgba(0,0,0,0.4)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '1.2rem',
+                                fontWeight: 'bold',
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                borderRadius: '12px'
+                              }}>
+                                🔗 点击预览大图
+                              </div>
+                            </a>
+
                           </div>
                         </div>
                       );
@@ -1124,31 +1078,57 @@ export default function TImage() {
               <div className="gallery-grid">
                 {historyList.map((item) => (
                   <div key={item.id} className="gallery-card">
-                    <div className="gallery-img-container">
-                      <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" />
+                    <div className="gallery-img-container" style={{ position: 'relative' }}>
+                      <a href={item.generated_url} target="_blank" rel="noreferrer" style={{ display: 'block', position: 'relative' }}>
+                        <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" style={{ transition: 'transform 0.3s ease' }} />
+                        <div className="preview-overlay" style={{
+                          position: 'absolute',
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          background: 'rgba(0,0,0,0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          opacity: 0,
+                          transition: 'opacity 0.2s',
+                        }}>
+                          🔗 点击预览
+                        </div>
+                      </a>
                     </div>
-                    <div className="gallery-card-info">
-                      <span className="gallery-style-badge">{item.style === 'edit' ? '📸 AI编辑' : '✨ 文本生成'}</span>
-                      <p className="gallery-prompt-text">{item.prompt || '旅游图景'}</p>
-                      <div className="gallery-card-actions">
+                    <div className="gallery-card-info" style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="gallery-style-badge">{item.style === 'edit' ? '📸 AI编辑' : '✨ 文本生成'}</span>
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
-                            if (item.generated_url && item.generated_url.startsWith('data:')) {
-                              const newTab = window.open();
-                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${item.generated_url}" style="max-width: 100%; height: auto;" /></body></html>`);
-                              newTab.document.close();
-                            } else {
-                              window.open(item.generated_url, '_blank');
-                            }
+                            navigator.clipboard.writeText(item.prompt || '');
+                            const btn = e.currentTarget;
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = '✅ 已复制';
+                            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
                           }}
-                          className="gallery-action-link"
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            color: '#fff',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
                         >
-                          预览
+                          📋 复制提示词
                         </button>
                       </div>
+                      <p className="gallery-prompt-text">{item.prompt || '旅游图景'}</p>
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -1156,6 +1136,13 @@ export default function TImage() {
           </section>
         )}
       </main>
+
+      <style jsx>{`
+        .result-image-wrapper:hover .preview-overlay { opacity: 1 !important; }
+        .result-image-wrapper:hover .result-img { transform: scale(1.02); }
+        .gallery-img-container:hover .preview-overlay { opacity: 1 !important; }
+        .gallery-img-container:hover .gallery-img { transform: scale(1.05); }
+      `}</style>
 
       {/* Recharge Modal with QR code */}
       {showRechargeModal && (

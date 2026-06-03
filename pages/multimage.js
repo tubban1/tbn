@@ -348,47 +348,36 @@ export default function MultiImage() {
                   
                   <div className="result-header">镜头 {idx + 1}</div>
                   {res === null ? (
-                    <div className="result-loading">
-                       <SingularityLoader />
+                    <div className="result-loading" style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                       <div style={{ transform: 'scale(0.35)', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                         <SingularityLoader />
+                       </div>
                     </div>
                   ) : res === 'error' ? (
                     <div className="result-error">生成失败</div>
                   ) : (
                     <>
-                      <img src={res} alt={`Result ${idx}`} className="result-img" />
-                      <div className="result-actions" style={{ padding: '10px', display: 'flex', gap: '8px' }}>
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (res && res.startsWith('data:')) {
-                              const newTab = window.open();
-                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${res}" style="max-width: 100%; height: auto;" /></body></html>`);
-                              newTab.document.close();
-                            } else {
-                              window.open(res, '_blank');
-                            }
-                          }}
-                          className="btn-result-action secondary" 
-                          style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
-                        >
-                          👁️ 预览
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const link = document.createElement('a');
-                            link.href = res;
-                            link.download = `result_${idx}_${Date.now()}.jpg`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                          className="btn-result-action secondary" 
-                          style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
-                        >
-                          💾 下载
-                        </button>
+                      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '8px' }} className="result-img-wrapper">
+                        <a href={res} target="_blank" rel="noreferrer" style={{ display: 'block', position: 'relative' }}>
+                          <img src={res} alt={`Result ${idx}`} className="result-img" style={{ width: '100%', height: '100%', transition: 'transform 0.3s ease' }} />
+                          <div className="preview-overlay" style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            opacity: 0,
+                            transition: 'opacity 0.2s',
+                          }}>
+                            🔗 点击预览
+                          </div>
+                        </a>
                       </div>
+
                     </>
                   )}
 
@@ -415,46 +404,57 @@ export default function MultiImage() {
               <div className="gallery-grid">
                 {historyList.map((item) => (
                   <div key={item.id} className="gallery-card">
-                    <div className="gallery-img-container">
-                      <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" />
+                    <div className="gallery-img-container" style={{ position: 'relative' }}>
+                      <a href={item.generated_url} target="_blank" rel="noreferrer" style={{ display: 'block', position: 'relative' }}>
+                        <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" style={{ transition: 'transform 0.3s ease' }} />
+                        <div className="preview-overlay" style={{
+                          position: 'absolute',
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          background: 'rgba(0,0,0,0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          opacity: 0,
+                          transition: 'opacity 0.2s',
+                        }}>
+                          🔗 点击预览
+                        </div>
+                      </a>
                     </div>
-                    <div className="gallery-card-info">
-                      <span className="gallery-style-badge">{item.style === 'edit' ? '📸 局部衍生' : '✨ 文本分镜'}</span>
-                      <p className="gallery-prompt-text">{item.prompt || '图景'}</p>
-                      <div className="gallery-card-actions">
+                    <div className="gallery-card-info" style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="gallery-style-badge">{item.style === 'edit' ? '📸 局部衍生' : '✨ 文本分镜'}</span>
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
-                            if (item.generated_url && item.generated_url.startsWith('data:')) {
-                              const newTab = window.open();
-                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${item.generated_url}" style="max-width: 100%; height: auto;" /></body></html>`);
-                              newTab.document.close();
-                            } else {
-                              window.open(item.generated_url, '_blank');
-                            }
+                            navigator.clipboard.writeText(item.prompt || '');
+                            const btn = e.currentTarget;
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = '✅ 已复制';
+                            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
                           }}
-                          className="gallery-action-link"
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
-                        >
-                          预览
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const link = document.createElement('a');
-                            link.href = item.generated_url;
-                            link.download = `history_${item.id}.jpg`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            color: '#fff',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
                           }}
-                          className="gallery-action-link"
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
                         >
-                          下载
+                          📋 复制提示词
                         </button>
                       </div>
+                      <p className="gallery-prompt-text">{item.prompt || '图景'}</p>
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -476,6 +476,10 @@ export default function MultiImage() {
       />
 
       <style jsx>{`
+        .result-img-wrapper:hover .preview-overlay { opacity: 1 !important; }
+        .result-img-wrapper:hover .result-img { transform: scale(1.05) !important; }
+        .gallery-img-container:hover .preview-overlay { opacity: 1 !important; }
+        .gallery-img-container:hover .gallery-img { transform: scale(1.05); }
         .app-container { max-width: 1200px; margin: 0 auto; padding: 2rem; color: #f8fafc; font-family: 'Inter', sans-serif; }
         .header { text-align: center; margin-bottom: 2rem; }
         .title { font-size: 2rem; background: linear-gradient(to right, #2dd4bf, #3b82f6); -webkit-background-clip: text; color: transparent; }
