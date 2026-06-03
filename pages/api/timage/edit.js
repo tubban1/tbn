@@ -148,19 +148,17 @@ export default async function handler(req, res) {
     let originalInputB64 = null;
 
     // Asynchronous Persistence Pattern: return raw image immediately to frontend
-    // The background /persist endpoint will handle Freeimage.host upload later.
-    // We save the raw base64 temporarily to the DB to avoid Vercel 4.5MB payload limits during /persist
-    let permanentInputUrl = 'text-to-image';
-    let permanentInputDisplayUrl = 'text-to-image';
+    // The background unawaited Promise will handle Freeimage.host upload later.
+    // We use placeholders in DB so no Base64 is stored.
+    let permanentInputUrl = 'temp_placeholder';
+    let permanentInputDisplayUrl = 'temp_placeholder';
     if (files && files.length > 0) {
       originalInputB64 = `data:${files[0].mimetype || 'image/png'};base64,${files[0].buffer.toString('base64')}`;
-      permanentInputUrl = originalInputB64;
-      permanentInputDisplayUrl = originalInputB64;
     }
 
     // 2. Output image persistence placeholder
-    let permanentOutputUrl = freeimageUrl;
-    let permanentDisplayUrl = freeimageUrl;
+    let permanentOutputUrl = 'temp_placeholder';
+    let permanentDisplayUrl = 'temp_placeholder';
 
     if (email) {
       try {
@@ -178,6 +176,45 @@ export default async function handler(req, res) {
       } catch (dbErr) {
         console.error('[TImage] Failed to update credits/save edit record to DB:', dbErr.message);
       }
+    }
+
+    // Fire and forget background Freeimage upload
+    if (drawImageId && freeimageUrl) {
+      (async () => {
+        try {
+          console.log(`[TImage Edit Background] Starting Freeimage upload for ID: ${drawImageId}`);
+          
+          let finalInputUrl = 'temp_placeholder';
+          if (originalInputB64 && originalInputB64.startsWith('data:')) {
+            const parts = originalInputB64.split(';base64,');
+            const mimeType = parts[0].split(':')[1];
+            const b64Data = parts[1];
+            const uploadResult = await uploadToFreeimageHost(b64Data, `input_${Date.now()}.png`, mimeType);
+            finalInputUrl = uploadResult.url;
+          }
+
+          let finalOutputUrl = 'temp_placeholder';
+          let finalDisplayUrl = 'temp_placeholder';
+          if (freeimageUrl.startsWith('data:')) {
+            const parts = freeimageUrl.split(';base64,');
+            const mimeType = parts[0].split(':')[1];
+            const b64Data = parts[1];
+            const uploadResult = await uploadToFreeimageHost(b64Data, `edited_${Date.now()}.png`, mimeType);
+            finalOutputUrl = uploadResult.url;
+            finalDisplayUrl = uploadResult.displayUrl;
+          } else if (freeimageUrl.startsWith('http')) {
+            const uploadResult = await processAndUploadImageUrl(freeimageUrl, `edited_${Date.now()}.png`);
+            finalOutputUrl = uploadResult.url;
+            finalDisplayUrl = uploadResult.displayUrl;
+          }
+
+          await query('UPDATE draw_images SET sketch_url = ?, generated_url = ?, display_url = ? WHERE id = ?', 
+                      [finalInputUrl, finalOutputUrl, finalDisplayUrl, drawImageId]);
+          console.log(`[TImage Edit Background] Successfully updated ID: ${drawImageId} with permanent URLs.`);
+        } catch (err) {
+          console.error(`[TImage Edit Background] Failed to upload/update ID: ${drawImageId}`, err);
+        }
+      })();
     }
 
     return res.json({

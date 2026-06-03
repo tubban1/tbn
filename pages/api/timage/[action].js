@@ -300,10 +300,10 @@ export default async function handler(req, res) {
       }
 
       // Asynchronous Persistence Pattern: return raw image immediately to frontend
-      // The background /persist endpoint will handle Freeimage.host upload later.
-      // We save the raw base64 temporarily to the DB to avoid Vercel 4.5MB payload limits during /persist
-      let permanentOutputUrl = freeimageUrl;
-      let permanentDisplayUrl = freeimageUrl;
+      // The background unawaited Promise will handle Freeimage.host upload later.
+      // We use placeholders in DB so no Base64 is stored.
+      let permanentOutputUrl = 'temp_placeholder';
+      let permanentDisplayUrl = 'temp_placeholder';
 
       let finalCredits = currentCredits;
       let drawImageId = null;
@@ -323,6 +323,36 @@ export default async function handler(req, res) {
         } catch (dbErr) {
           console.error('[TImage] Failed to update credits/save generation record to DB:', dbErr.message);
         }
+      }
+
+      // Fire and forget background Freeimage upload
+      if (drawImageId && freeimageUrl) {
+        (async () => {
+          try {
+            console.log(`[TImage Background] Starting Freeimage upload for ID: ${drawImageId}`);
+            let finalOutputUrl = 'temp_placeholder';
+            let finalDisplayUrl = 'temp_placeholder';
+            if (freeimageUrl.startsWith('data:')) {
+              const parts = freeimageUrl.split(';base64,');
+              const mimeType = parts[0].split(':')[1];
+              const b64Data = parts[1];
+              const filename = `generated_${Date.now()}.png`;
+              const uploadResult = await uploadToFreeimageHost(b64Data, filename, mimeType);
+              finalOutputUrl = uploadResult.url;
+              finalDisplayUrl = uploadResult.displayUrl;
+            } else if (freeimageUrl.startsWith('http')) {
+              const filename = `generated_${Date.now()}.png`;
+              const uploadResult = await processAndUploadImageUrl(freeimageUrl, filename);
+              finalOutputUrl = uploadResult.url;
+              finalDisplayUrl = uploadResult.displayUrl;
+            }
+            await query('UPDATE draw_images SET generated_url = ?, display_url = ? WHERE id = ?', 
+                        [finalOutputUrl, finalDisplayUrl, drawImageId]);
+            console.log(`[TImage Background] Successfully updated ID: ${drawImageId} with permanent URLs.`);
+          } catch (err) {
+            console.error(`[TImage Background] Failed to upload/update ID: ${drawImageId}`, err);
+          }
+        })();
       }
 
       return res.json({
