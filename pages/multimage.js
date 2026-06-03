@@ -15,6 +15,7 @@ const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'),
 export default function MultiImage() {
   const [activeTab, setActiveTab] = useState('text'); // 'text' | 'image'
   const [unifiedStyle, setUnifiedStyle] = useState('Cinematic 电影感摄影');
+  const [unifiedSize, setUnifiedSize] = useState('1024x1024');
   const [sceneCount, setSceneCount] = useState(6);
 
   const [copyText, setCopyText] = useState('');
@@ -148,7 +149,7 @@ export default function MultiImage() {
           const formData = new FormData();
           formData.append('prompt', scene.prompt);
           if (email) formData.append('email', email);
-          formData.append('size', '1024x1024'); // default
+          formData.append('size', unifiedSize);
           formData.append('image', baseImage);
           
           const res = await axios.post('/api/timage/edit', formData);
@@ -160,7 +161,7 @@ export default function MultiImage() {
         } else {
           const res = await axios.post('/api/timage/generate', {
             prompt: scene.prompt,
-            size: '1024x1024',
+            size: unifiedSize,
             email
           });
           if (res.data?.success) {
@@ -318,17 +319,32 @@ export default function MultiImage() {
           
           {activeTab === 'text' && (
             <div className="upload-section">
-              <h3>2. 选择统一风格</h3>
-              <p className="hint">我们将指示AI引擎在提取的所有分镜中强制保持这一统一风格，确保输出的多图具有连贯性。</p>
-              <select value={unifiedStyle} onChange={(e) => setUnifiedStyle(e.target.value)} className="style-select">
-                <option value="Cinematic 电影感摄影">Cinematic 电影感真实摄影</option>
-                <option value="Studio Ghibli 宫崎骏动画风格">Studio Ghibli 宫崎骏日系动画风格</option>
-                <option value="3D Pixar 皮克斯3D渲染">3D Pixar 皮克斯3D卡通渲染</option>
-                <option value="Watercolor 浪漫水彩插画">Watercolor 唯美水彩插画</option>
-                <option value="Cyberpunk 赛博朋克风">Cyberpunk 霓虹赛博朋克风</option>
-                <option value="Minimalist Flat Design 极简扁平化插画">Minimalist Flat 极简扁平化</option>
-                <option value="Comic Book 漫画风格">Comic Book 漫画风格</option>
-              </select>
+              <h3>2. 全局参数设置</h3>
+              <p className="hint">我们将强制要求AI在生成的所有分镜中保持一致的风格与尺寸，确保输出具备连贯性。</p>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>🎨 选择统一风格：</label>
+                <select value={unifiedStyle} onChange={(e) => setUnifiedStyle(e.target.value)} className="style-select">
+                  <option value="Cinematic 电影感摄影">Cinematic 电影感真实摄影</option>
+                  <option value="Studio Ghibli 宫崎骏动画风格">Studio Ghibli 宫崎骏日系动画风格</option>
+                  <option value="3D Pixar 皮克斯3D渲染">3D Pixar 皮克斯3D卡通渲染</option>
+                  <option value="Watercolor 浪漫水彩插画">Watercolor 唯美水彩插画</option>
+                  <option value="Cyberpunk 赛博朋克风">Cyberpunk 霓虹赛博朋克风</option>
+                  <option value="Minimalist Flat Design 极简扁平化插画">Minimalist Flat 极简扁平化</option>
+                  <option value="Comic Book 漫画风格">Comic Book 漫画风格</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>📐 输出比例/尺寸：</label>
+                <select value={unifiedSize} onChange={(e) => setUnifiedSize(e.target.value)} className="style-select">
+                  <option value="1024x1792">9:16 长图攻略 / 竖版海报 (1024x1792)</option>
+                  <option value="1024x1365">3:4 小红书种草 / 旅拍写真 (1024x1365)</option>
+                  <option value="1792x1024">16:9 风光大片 / 目的地宽屏 (1792x1024)</option>
+                  <option value="1024x1024">1:1 正方形图文配图 (1024x1024)</option>
+                  <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768)</option>
+                </select>
+              </div>
             </div>
           )}
 
