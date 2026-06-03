@@ -357,9 +357,37 @@ export default function MultiImage() {
                   ) : (
                     <>
                       <img src={res} alt={`Result ${idx}`} className="result-img" />
-                      <div className="result-actions" style={{ padding: '10px', display: 'flex', gap: '8px' }}>
-                        <a href={res} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>👁️ 预览</a>
-                        <a href={res} download={`result_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px' }}>💾 下载</a>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (res && res.startsWith('data:')) {
+                              const newTab = window.open();
+                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${res}" style="max-width: 100%; height: auto;" /></body></html>`);
+                              newTab.document.close();
+                            } else {
+                              window.open(res, '_blank');
+                            }
+                          }}
+                          className="btn-result-action secondary" 
+                          style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                        >
+                          👁️ 预览
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const link = document.createElement('a');
+                            link.href = res;
+                            link.download = `result_${idx}_${Date.now()}.jpg`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="btn-result-action secondary" 
+                          style={{ flex: 1, padding: '8px', fontSize: '0.75rem', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', textDecoration: 'none', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                        >
+                          💾 下载
+                        </button>
                       </div>
                     </>
                   )}
@@ -394,8 +422,37 @@ export default function MultiImage() {
                       <span className="gallery-style-badge">{item.style === 'edit' ? '📸 局部衍生' : '✨ 文本分镜'}</span>
                       <p className="gallery-prompt-text">{item.prompt || '图景'}</p>
                       <div className="gallery-card-actions">
-                        <a href={item.generated_url} target="_blank" rel="noreferrer" className="gallery-action-link">预览</a>
-                        <a href={item.generated_url} download={`history_${item.id}.jpg`} className="gallery-action-link">下载</a>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (item.generated_url && item.generated_url.startsWith('data:')) {
+                              const newTab = window.open();
+                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${item.generated_url}" style="max-width: 100%; height: auto;" /></body></html>`);
+                              newTab.document.close();
+                            } else {
+                              window.open(item.generated_url, '_blank');
+                            }
+                          }}
+                          className="gallery-action-link"
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                          预览
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const link = document.createElement('a');
+                            link.href = item.generated_url;
+                            link.download = `history_${item.id}.jpg`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="gallery-action-link"
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                          下载
+                        </button>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(item.generated_url);

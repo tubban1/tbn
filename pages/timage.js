@@ -1086,8 +1086,38 @@ export default function TImage() {
                             >
                               🔗 复制外链
                             </button>
-                            <a href={out.generatedUrl} target="_blank" rel="noreferrer" className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>👁️ 预览</a>
-                            <a href={out.generatedUrl} download={`travel_${idx}_${Date.now()}.jpg`} className="btn-result-action secondary" style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center' }}>💾 保存</a>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (out.generatedUrl.startsWith('data:')) {
+                                  // For base64, open a new tab and write the image tag directly to avoid browser security blocks on data URIs
+                                  const newTab = window.open();
+                                  newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${out.generatedUrl}" style="max-width: 100%; height: auto;" /></body></html>`);
+                                  newTab.document.close();
+                                } else {
+                                  window.open(out.generatedUrl, '_blank');
+                                }
+                              }}
+                              className="btn-result-action secondary" 
+                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center', cursor: 'pointer' }}
+                            >
+                              👁️ 预览
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const link = document.createElement('a');
+                                link.href = out.generatedUrl;
+                                link.download = `travel_${idx}_${Date.now()}.jpg`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              className="btn-result-action secondary" 
+                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0, textAlign: 'center', cursor: 'pointer' }}
+                            >
+                              💾 保存
+                            </button>
                           </div>
                         </div>
                       );
@@ -1122,7 +1152,22 @@ export default function TImage() {
                       <span className="gallery-style-badge">{item.style === 'edit' ? '📸 AI编辑' : '✨ 文本生成'}</span>
                       <p className="gallery-prompt-text">{item.prompt || '旅游图景'}</p>
                       <div className="gallery-card-actions">
-                        <a href={item.generated_url} target="_blank" rel="noreferrer" className="gallery-action-link">预览</a>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (item.generated_url && item.generated_url.startsWith('data:')) {
+                              const newTab = window.open();
+                              newTab.document.write(`<html><body style="margin: 0; display: flex; justify-content: center; align-items: center; background: #0e1111; min-height: 100vh;"><img src="${item.generated_url}" style="max-width: 100%; height: auto;" /></body></html>`);
+                              newTab.document.close();
+                            } else {
+                              window.open(item.generated_url, '_blank');
+                            }
+                          }}
+                          className="gallery-action-link"
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                          预览
+                        </button>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(item.generated_url);
