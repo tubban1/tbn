@@ -30,7 +30,8 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
 Your task is to analyze the user's provided long text, story, or article, and split it into EXACTLY ${targetSceneCount} logical visual scenes. You MUST generate exactly ${targetSceneCount} scenes, no more, no less.
-For each scene, extract the core action/visual and write a highly detailed, professional English Midjourney/Stable Diffusion prompt.${styleInstruction}
+For each scene, extract the core action/visual and write a highly detailed, professional English image generation prompt.${styleInstruction}
+IMPORTANT: Our image model is highly capable of rendering typography. If the user's text requests words, captions, or typography to be included IN the image, you MUST specify exactly what text to write in the prompt (e.g. 'with the text "Hello" written on it'). Do NOT append "no text" to the prompt if the user asks for text!
 Also provide a short Chinese description of what the scene is about.
 
 Return the response STRICTLY as a JSON array of objects. Do not include markdown code blocks around the JSON.
