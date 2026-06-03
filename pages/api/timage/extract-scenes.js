@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { text } = req.body;
+  const { text, unifiedStyle } = req.body;
 
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ success: false, error: 'Text content is required' });
@@ -22,9 +22,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
     }
 
+    const styleInstruction = unifiedStyle 
+      ? `\nCRITICAL STYLE REQUIREMENT: You MUST enforce the art style "${unifiedStyle}" in EVERY single prompt you generate. Ignore any conflicting style references in the text.` 
+      : '';
+
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
 Your task is to analyze the user's provided long text, story, or article, and split it into logical visual scenes (maximum 12 scenes to prevent overloading).
-For each scene, extract the core action/visual and write a highly detailed, professional English Midjourney/Stable Diffusion prompt.
+For each scene, extract the core action/visual and write a highly detailed, professional English Midjourney/Stable Diffusion prompt.${styleInstruction}
 Also provide a short Chinese description of what the scene is about.
 
 Return the response STRICTLY as a JSON array of objects. Do not include markdown code blocks around the JSON.

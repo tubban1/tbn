@@ -309,6 +309,7 @@ export default function MultiImage() {
                 <option value="Watercolor 浪漫水彩插画">Watercolor 唯美水彩插画</option>
                 <option value="Cyberpunk 赛博朋克风">Cyberpunk 霓虹赛博朋克风</option>
                 <option value="Minimalist Flat Design 极简扁平化插画">Minimalist Flat 极简扁平化</option>
+                <option value="Comic Book 漫画风格">Comic Book 漫画风格</option>
               </select>
             </div>
           )}
