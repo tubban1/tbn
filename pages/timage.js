@@ -689,7 +689,7 @@ export default function TImage() {
                               setSelectedOptimizedIndexes(nextIndexes);
                               // Sync to primary prompt textbox if exactly 1 card is selected
                               if (nextIndexes.length === 1) {
-                                setPrompt(optimizedResults[nextIndexes[0]].prompt);
+                                setPrompt(optimizedResults[nextIndexes[0]].promptZh || optimizedResults[nextIndexes[0]].prompt);
                               } else if (nextIndexes.length === 0) {
                                 setPrompt('');
                               }
@@ -723,7 +723,22 @@ export default function TImage() {
                                 {item.promptZh}
                               </div>
                             )}
-                            <p className="suggestion-text" style={{ marginTop: '4px', fontSize: '0.7rem', opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.prompt}</p>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: '4px' }}>
+                              <p className="suggestion-text" style={{ fontSize: '0.7rem', opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>{item.prompt}</p>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(item.prompt);
+                                  alert('英文提示词已复制！');
+                                }}
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', color: '#cbd5e1', fontSize: '10px', padding: '4px 6px', cursor: 'pointer', marginLeft: '8px', flexShrink: 0, transition: 'all 0.2s' }}
+                                onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                                onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                                title="复制英文提示词"
+                              >
+                                📄 复制
+                              </button>
+                            </div>
                             <div className="suggestion-action" style={{ fontSize: '0.75rem', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               {isSelected ? '⚡ 已选中一键批量生图' : '➕ 点击加入批量生图'}
                             </div>
