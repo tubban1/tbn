@@ -385,10 +385,20 @@ export default function TImage() {
                 return item;
               } else {
                 console.error(`Prompt slot ${idx} failed:`, res.data?.error);
+                setCurrentSessionOutputs(prev => {
+                  const updated = [...prev];
+                  updated[idx] = 'error';
+                  return updated;
+                });
                 return null;
               }
             } catch (err) {
               console.error(`Prompt slot ${idx} error:`, err);
+              setCurrentSessionOutputs(prev => {
+                const updated = [...prev];
+                updated[idx] = 'error';
+                return updated;
+              });
               return null;
             }
           });
@@ -966,6 +976,34 @@ export default function TImage() {
                               </span>
                               <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', margin: 0 }}>
                                 ⚡ 正在高并发调制像素中...
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      if (out === 'error') {
+                        return (
+                          <div key={`error-${idx}`} className="result-item-box error-state" style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '16px',
+                            padding: '32px 24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '12px',
+                            minHeight: '430px',
+                            height: '100%'
+                          }}>
+                            <div style={{ fontSize: '2rem' }}>⚠️</div>
+                            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: '600' }}>
+                                画作方案 {idx + 1} 生成失败
+                              </span>
+                              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+                                可能是网络超时或提示词包含违禁内容，请重试
                               </p>
                             </div>
                           </div>
