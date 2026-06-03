@@ -1077,16 +1077,6 @@ export default function TImage() {
                             marginTop: 'auto'
                           }}>
                             <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(out.generatedUrl);
-                                alert('已成功复制图片永久链接到剪贴板！');
-                              }}
-                              className="btn-result-action"
-                              style={{ flex: 1, padding: '10px 12px', fontSize: '0.75rem', margin: 0 }}
-                            >
-                              🔗 复制外链
-                            </button>
-                            <button
                               onClick={(e) => {
                                 e.preventDefault();
                                 if (out.generatedUrl.startsWith('data:')) {
@@ -1167,15 +1157,6 @@ export default function TImage() {
                           style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
                         >
                           预览
-                        </button>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(item.generated_url);
-                            alert('复制成功！');
-                          }}
-                          className="gallery-action-btn"
-                        >
-                          复制链接
                         </button>
                       </div>
                     </div>

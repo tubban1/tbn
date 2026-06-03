@@ -357,6 +357,7 @@ export default function MultiImage() {
                   ) : (
                     <>
                       <img src={res} alt={`Result ${idx}`} className="result-img" />
+                      <div className="result-actions" style={{ padding: '10px', display: 'flex', gap: '8px' }}>
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
@@ -452,15 +453,6 @@ export default function MultiImage() {
                           style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
                         >
                           下载
-                        </button>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(item.generated_url);
-                            alert('复制成功！');
-                          }}
-                          className="gallery-action-btn"
-                        >
-                          复制链接
                         </button>
                       </div>
                     </div>
