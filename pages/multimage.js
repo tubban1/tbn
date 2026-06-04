@@ -363,6 +363,17 @@ export default function MultiImage() {
                   <span className="preview-hint">点击可作画笔标记</span>
                 </div>
               )}
+
+              <div style={{ marginTop: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>📐 输出比例/尺寸：</label>
+                <select value={unifiedSize} onChange={(e) => setUnifiedSize(e.target.value)} className="style-select">
+                  <option value="1024x1792">9:16 长图攻略 / 竖版海报 (1024x1792)</option>
+                  <option value="1024x1365">3:4 小红书种草 / 旅拍写真 (1024x1365)</option>
+                  <option value="1792x1024">16:9 风光大片 / 目的地宽屏 (1792x1024)</option>
+                  <option value="1024x1024">1:1 正方形图文配图 (1024x1024)</option>
+                  <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768)</option>
+                </select>
+              </div>
             </div>
           )}
 

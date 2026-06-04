@@ -285,7 +285,7 @@ export default function TImage() {
         } else {
           setSelectedOptimizedIndexes([]);
         }
-        setInfoMessage('🪄 Gemini 成功为您改写并润色了 3 款不同风格的绝美指令！您可以勾选多条，一次性生成多张大图！');
+        setInfoMessage('🪄 智能引擎成功为您改写并润色了 3 款不同风格的绝美指令！您可以勾选多条，一次性生成多张大图！');
       } else {
         setErrorMessage(response.data.error || '提示词优化失败');
       }
@@ -616,7 +616,7 @@ export default function TImage() {
 
               {/* Gemini Prompt Optimizer Box */}
               <div className="prompt-optimizer-card">
-                <label className="optimizer-label">🪄 Gemini 智能提示词优化 (用简单想法生成多个英文大片指令)</label>
+                <label className="optimizer-label">🪄 智能提示词优化 (用简单想法生成多个英文大片指令)</label>
                 <div className="optimizer-input-group">
                   <input
                     type="text"
@@ -637,7 +637,7 @@ export default function TImage() {
                     disabled={isOptimizing || !simpleIdea.trim()}
                     className="btn-optimizer-action"
                   >
-                    {isOptimizing ? '✨ 智能改写中...' : '🪄 Gemini 优化'}
+                    {isOptimizing ? '✨ 智能改写中...' : '🪄 智能优化'}
                   </button>
                 </div>
 
