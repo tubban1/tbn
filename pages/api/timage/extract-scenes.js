@@ -14,14 +14,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.VECTORENGINE_API_KEY;
+    const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
     const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
 
     // We can use a fast model like gpt-4o-mini or gemini-1.5-flash for text extraction
     const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
 
     if (!apiKey) {
-      return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
+      return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
     }
 
     const styleInstruction = unifiedStyle

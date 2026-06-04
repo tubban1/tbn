@@ -112,12 +112,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'userPrompt is required' });
       }
 
-      const apiKey = process.env.VECTORENGINE_API_KEY;
+      const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
       const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
       const promptModel = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
 
       if (!apiKey) {
-        return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
+        return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
       }
 
       const systemPrompt = `你是一位精通GPT-Image 绘图的顶级旅游行业提示词工程大师。
