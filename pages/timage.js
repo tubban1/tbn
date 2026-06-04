@@ -391,7 +391,9 @@ export default function TImage() {
           // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
           setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
 
-          const promises = selectedOptimizedIndexes.map(async (idx, arrayIndex) => {
+          const results = [];
+          for (let arrayIndex = 0; arrayIndex < selectedOptimizedIndexes.length; arrayIndex++) {
+            const idx = selectedOptimizedIndexes[arrayIndex];
             const opt = optimizedResults[idx];
             const p = opt.promptZh || opt.prompt;
             try {
@@ -420,7 +422,7 @@ export default function TImage() {
                   loadHistory(email);
                 }
 
-                return item;
+                results.push(item);
               } else {
                 console.error(`Prompt slot ${idx} failed:`, res.data?.error);
                 setCurrentSessionOutputs(prev => {
@@ -428,7 +430,7 @@ export default function TImage() {
                   updated[arrayIndex] = 'error';
                   return updated;
                 });
-                return null;
+                results.push(null);
               }
             } catch (err) {
               console.error(`Prompt slot ${idx} error:`, err);
@@ -437,11 +439,15 @@ export default function TImage() {
                 updated[arrayIndex] = 'error';
                 return updated;
               });
-              return null;
+              results.push(null);
             }
-          });
+            
+            // Add a 2-second delay between requests to be extra safe against rate limits
+            if (arrayIndex < selectedOptimizedIndexes.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
 
-          const results = await Promise.all(promises);
           const validResults = results.filter(Boolean);
 
           if (validResults.length > 0) {
