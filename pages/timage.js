@@ -360,7 +360,7 @@ export default function TImage() {
     }
 
     // Determine if batch mode is active
-    const isBatchMode = !image1 && selectedOptimizedIndexes.length > 1;
+    const isBatchMode = selectedOptimizedIndexes.length > 1;
 
     if (isBatchMode) {
       const totalCreditsNeeded = selectedOptimizedIndexes.length * 5;
@@ -382,23 +382,25 @@ export default function TImage() {
     setIsProcessing(true);
 
     try {
-      if (!image1) {
-        if (isBatchMode) {
-          // BATCH GENERATION FLOW
-          const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].promptZh || optimizedResults[idx].prompt);
-          console.log(`[TImage Batch] Starting parallel batch generation for ${batchPrompts.length} prompts`);
+      if (isBatchMode) {
+        // BATCH GENERATION FLOW
+        const batchPrompts = selectedOptimizedIndexes.map(idx => optimizedResults[idx].promptZh || optimizedResults[idx].prompt);
+        console.log(`[TImage Batch] Starting parallel batch generation for ${batchPrompts.length} prompts`);
 
-          // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
-          setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
+        // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
+        setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
 
-          const results = [];
-          for (let arrayIndex = 0; arrayIndex < selectedOptimizedIndexes.length; arrayIndex++) {
-            const idx = selectedOptimizedIndexes[arrayIndex];
-            const opt = optimizedResults[idx];
-            const p = opt.promptZh || opt.prompt;
-            try {
-              const res = await axios.post('/api/timage/generate', {
-                prompt: p, // Legacy prompt parameter used as prompt_en fallback
+        const results = [];
+        for (let arrayIndex = 0; arrayIndex < selectedOptimizedIndexes.length; arrayIndex++) {
+          const idx = selectedOptimizedIndexes[arrayIndex];
+          const opt = optimizedResults[idx];
+          const p = opt.promptZh || opt.prompt;
+          
+          try {
+            let res;
+            if (!image1) {
+              res = await axios.post('/api/timage/generate', {
+                prompt: p,
                 prompt_en: opt.prompt,
                 prompt_zh: opt.promptZh,
                 size,
@@ -406,34 +408,34 @@ export default function TImage() {
                 format,
                 email
               });
-              if (res.data?.success) {
-                const item = {
-                  displayUrl: res.data.freeimageUrl,
-                  generatedUrl: res.data.originalUrl || res.data.freeimageUrl
-                };
-                // Deliver this image immediately into its pre-allocated slot!
-                setCurrentSessionOutputs(prev => {
-                  const updated = [...prev];
-                  updated[arrayIndex] = item;
-                  return updated;
-                });
-                
-                if (email) {
-                  loadHistory(email);
-                }
-
-                results.push(item);
-              } else {
-                console.error(`Prompt slot ${idx} failed:`, res.data?.error);
-                setCurrentSessionOutputs(prev => {
-                  const updated = [...prev];
-                  updated[arrayIndex] = 'error';
-                  return updated;
-                });
-                results.push(null);
-              }
-            } catch (err) {
-              console.error(`Prompt slot ${idx} error:`, err);
+            } else {
+              const formData = new FormData();
+              formData.append('prompt', p);
+              formData.append('prompt_en', opt.prompt);
+              formData.append('prompt_zh', opt.promptZh);
+              formData.append('size', size);
+              formData.append('email', email);
+              formData.append('image', image1);
+              if (image2) formData.append('image', image2);
+              res = await axios.post('/api/timage/edit', formData);
+            }
+            
+            if (res.data?.success) {
+              const item = {
+                displayUrl: res.data.freeimageUrl,
+                generatedUrl: res.data.originalUrl || res.data.freeimageUrl
+              };
+              // Deliver this image immediately into its pre-allocated slot!
+              setCurrentSessionOutputs(prev => {
+                const updated = [...prev];
+                updated[arrayIndex] = item;
+                return updated;
+              });
+              
+              if (email) loadHistory(email);
+              results.push(item);
+            } else {
+              console.error(`Prompt slot ${idx} failed:`, res.data?.error);
               setCurrentSessionOutputs(prev => {
                 const updated = [...prev];
                 updated[arrayIndex] = 'error';
@@ -441,32 +443,42 @@ export default function TImage() {
               });
               results.push(null);
             }
-            
-            // Add a 2-second delay between requests to be extra safe against rate limits
-            if (arrayIndex < selectedOptimizedIndexes.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
+          } catch (err) {
+            console.error(`Prompt slot ${idx} error:`, err);
+            setCurrentSessionOutputs(prev => {
+              const updated = [...prev];
+              updated[arrayIndex] = 'error';
+              return updated;
+            });
+            results.push(null);
+          }
+          
+          // Add a 2-second delay between requests to be extra safe against rate limits
+          if (arrayIndex < selectedOptimizedIndexes.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+
+        const validResults = results.filter(Boolean);
+
+        if (validResults.length > 0) {
+          // Find the first completed output to set as primary highlights
+          const firstValid = validResults[0];
+          setDisplayUrl(firstValid.displayUrl);
+          setGeneratedUrl(firstValid.generatedUrl);
+
+          // Re-fetch remaining credits
+          const lastRes = await axios.post('/api/timage/pre-check', { email });
+          if (lastRes.data?.success) {
+            setCredits(lastRes.data.credits);
           }
 
-          const validResults = results.filter(Boolean);
-
-          if (validResults.length > 0) {
-            // Find the first completed output to set as primary highlights
-            const firstValid = validResults[0];
-            setDisplayUrl(firstValid.displayUrl);
-            setGeneratedUrl(firstValid.generatedUrl);
-
-            // Re-fetch remaining credits
-            const lastRes = await axios.post('/api/timage/pre-check', { email });
-            if (lastRes.data?.success) {
-              setCredits(lastRes.data.credits);
-            }
-
-            setInfoMessage(`🎉 成功批量生成并交付了 ${validResults.length} 张高清旅游大图！`);
-            loadHistory(email);
-          }
-        } else {
-          // SINGLE GENERATION FLOW
+          setInfoMessage(`🎉 成功批量生成并交付了 ${validResults.length} 张高清旅游大图！`);
+          loadHistory(email);
+        }
+      } else {
+        // SINGLE GENERATION FLOW
+        if (!image1) {
           setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/generate', {
             prompt,
@@ -487,43 +499,31 @@ export default function TImage() {
             setDisplayUrl(out.displayUrl);
             setCredits(response.data.credits);
 
-            if (email) {
-              loadHistory(email);
-            }
+            if (email) loadHistory(email);
           }
-        }
-      } else {
-        // Image-to-Image / AI旅拍 (Single image output)
-        if (!image1) {
-          setErrorMessage('执行图像编辑/AI旅拍至少需要上传一张游客或主体图片！');
-          setIsProcessing(false);
-          return;
-        }
+        } else {
+          // Image-to-Image / AI旅拍 (Single image output)
+          const formData = new FormData();
+          formData.append('prompt', prompt);
+          formData.append('size', size);
+          formData.append('email', email);
+          formData.append('image', image1);
+          if (image2) formData.append('image', image2);
 
-        const formData = new FormData();
-        formData.append('prompt', prompt);
-        formData.append('size', size);
-        formData.append('email', email);
-        formData.append('image', image1);
-        if (image2) {
-          formData.append('image', image2);
-        }
+          setCurrentSessionOutputs([null]); // Trigger loading animation
+          const response = await axios.post('/api/timage/edit', formData);
 
-        setCurrentSessionOutputs([null]); // Trigger loading animation
-        const response = await axios.post('/api/timage/edit', formData);
-
-        if (response.data?.success) {
-          const out = {
-            displayUrl: response.data.freeimageUrl,
-            generatedUrl: response.data.originalUrl || response.data.freeimageUrl
-          };
-          setCurrentSessionOutputs([out]);
-          setGeneratedUrl(out.generatedUrl);
-          setDisplayUrl(out.displayUrl);
-          setCredits(response.data.credits);
-          
-          if (email) {
-            loadHistory(email);
+          if (response.data?.success) {
+            const out = {
+              displayUrl: response.data.freeimageUrl,
+              generatedUrl: response.data.originalUrl || response.data.freeimageUrl
+            };
+            setCurrentSessionOutputs([out]);
+            setGeneratedUrl(out.generatedUrl);
+            setDisplayUrl(out.displayUrl);
+            setCredits(response.data.credits);
+            
+            if (email) loadHistory(email);
           }
         }
       }
