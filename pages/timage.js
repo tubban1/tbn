@@ -531,6 +531,7 @@ export default function TImage() {
       console.error(error);
       const errDetail = error.response?.data?.error || error.message || 'AI 绘画引擎响应失败';
       setErrorMessage(errDetail);
+      setCurrentSessionOutputs(prev => prev.map(item => item === null ? 'error' : item));
     } finally {
       setIsProcessing(false);
     }
