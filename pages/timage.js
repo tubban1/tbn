@@ -228,7 +228,7 @@ export default function TImage() {
     }
   };
 
-  const handleFileChange = (e, index) => {
+  const handleFileChange = async (e, index) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -237,17 +237,67 @@ export default function TImage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (index === 1) {
-        setImage1(file);
-        setImage1Preview(reader.result);
-      } else {
-        setImage2(file);
-        setImage2Preview(reader.result);
+    if (file.type.startsWith('image/')) {
+      // Auto-compress large images to bypass Vercel 4.5MB serverless payload limit
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1536;
+          
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            const previewUrl = canvas.toDataURL('image/jpeg', 0.85);
+            
+            if (index === 1) {
+              setImage1(compressedFile);
+              setImage1Preview(previewUrl);
+            } else {
+              setImage2(compressedFile);
+              setImage2Preview(previewUrl);
+            }
+          }, 'image/jpeg', 0.85);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Documents (PDF/DOCX/TXT)
+      if (file.size > 4.5 * 1024 * 1024) {
+        setErrorMessage('由于云服务限制，非图片类文档大小请控制在 4MB 以内！');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (index === 1) {
+          setImage1(file);
+          setImage1Preview(reader.result);
+        } else {
+          setImage2(file);
+          setImage2Preview(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const removeImage = (index) => {
