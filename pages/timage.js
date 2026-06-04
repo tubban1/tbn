@@ -741,7 +741,13 @@ export default function TImage() {
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         title="点击展开编辑/标记"
                       >
-                        <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {image1 && image1.type && image1.type.startsWith('image/') ? (
+                          <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '24px' }}>
+                            📄
+                          </div>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); removeImage(1); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
                       </div>
                     )}
@@ -753,7 +759,13 @@ export default function TImage() {
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         title="点击展开编辑/标记"
                       >
-                        <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {image2 && image2.type && image2.type.startsWith('image/') ? (
+                          <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '24px' }}>
+                            📄
+                          </div>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); removeImage(2); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
                       </div>
                     )}
