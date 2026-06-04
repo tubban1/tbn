@@ -31,10 +31,6 @@ export default async function handler(req, res) {
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
 Your task is to analyze the user's provided long text, story, or article, and split it into EXACTLY ${targetSceneCount} logical visual scenes. You MUST generate exactly ${targetSceneCount} scenes, no more, no less.
 For each scene, extract the core action/visual and write a highly detailed, professional English image generation prompt.${styleInstruction}
-
-CRITICAL CHARACTER CONSISTENCY RULE:
-If the story revolves around a specific protagonist or subject, you MUST define a strict, detailed visual anchor (e.g., "A modern Chinese young woman with short black hair wearing a red jacket", "A cute fluffy golden retriever") and forcefully PREPEND this exact same anchor to EVERY SINGLE scene's English prompt. Do not change the anchor description between scenes.
-
 IMPORTANT: Our image model is highly capable of rendering typography. If the user's text requests words, captions, or typography to be included IN the image, you MUST specify exactly what text to write in the prompt (e.g. 'with the text "Hello" written on it'). Do NOT append "no text" to the prompt if the user asks for text!
 Also provide a short Chinese description of what the scene is about.
 
