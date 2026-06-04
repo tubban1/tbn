@@ -325,10 +325,14 @@ export default async function handler(req, res) {
         console.log(`[TImage] Synchronous Freeimage upload complete. URL: ${permanentOutputUrl}`);
       } catch (uploadErr) {
         console.error('[TImage] Synchronous upload failed, falling back to original URL:', uploadErr.message);
-        if (permanentOutputUrl.startsWith('data:') && permanentOutputUrl.length > 500) {
-          permanentOutputUrl = 'error:upload_failed_base64_too_long';
-          permanentDisplayUrl = 'error:upload_failed_base64_too_long';
-        }
+      }
+
+      let dbOutputUrl = permanentOutputUrl;
+      let dbDisplayUrl = permanentDisplayUrl;
+
+      if (dbOutputUrl.startsWith('data:') && dbOutputUrl.length > 500) {
+        dbOutputUrl = 'error:upload_failed_base64_too_long';
+        dbDisplayUrl = 'error:upload_failed_base64_too_long';
       }
 
       let finalCredits = currentCredits;
@@ -348,8 +352,8 @@ export default async function handler(req, res) {
           const savedImage = await saveDrawImagePair(
             email, 
             'text-to-image', 
-            permanentOutputUrl, 
-            permanentDisplayUrl, 
+            dbOutputUrl, 
+            dbDisplayUrl, 
             'text', 
             actualPromptEn,
             prompt_zh || null,

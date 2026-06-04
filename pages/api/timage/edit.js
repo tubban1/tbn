@@ -173,9 +173,6 @@ export default async function handler(req, res) {
     } catch (inUploadErr) {
       console.error('[TImage Edit] Input upload failed, falling back:', inUploadErr.message);
       permanentInputUrl = originalInputB64 || 'temp_placeholder';
-      if (permanentInputUrl.startsWith('data:') && permanentInputUrl.length > 500) {
-        permanentInputUrl = 'error:input_base64_too_long';
-      }
     }
 
     try {
@@ -198,10 +195,18 @@ export default async function handler(req, res) {
       console.error('[TImage Edit] Output upload failed, falling back:', uploadErr.message);
       permanentOutputUrl = freeimageUrl;
       permanentDisplayUrl = freeimageUrl;
-      if (permanentOutputUrl.startsWith('data:') && permanentOutputUrl.length > 500) {
-        permanentOutputUrl = 'error:upload_failed_base64_too_long';
-        permanentDisplayUrl = 'error:upload_failed_base64_too_long';
-      }
+    }
+
+    let dbOutputUrl = permanentOutputUrl;
+    let dbDisplayUrl = permanentDisplayUrl;
+    let dbInputUrl = permanentInputUrl;
+
+    if (dbOutputUrl.startsWith('data:') && dbOutputUrl.length > 500) {
+      dbOutputUrl = 'error:upload_failed_base64_too_long';
+      dbDisplayUrl = 'error:upload_failed_base64_too_long';
+    }
+    if (dbInputUrl.startsWith('data:') && dbInputUrl.length > 500) {
+      dbInputUrl = 'error:input_base64_too_long';
     }
 
     if (email) {
@@ -218,9 +223,9 @@ export default async function handler(req, res) {
         const actualPromptEn = prompt_en || prompt;
         const savedImage = await saveDrawImagePair(
           email, 
-          permanentInputUrl, 
-          permanentOutputUrl, 
-          permanentDisplayUrl, 
+          dbInputUrl, 
+          dbOutputUrl, 
+          dbDisplayUrl, 
           'edit', 
           actualPromptEn,
           prompt_zh || null,
