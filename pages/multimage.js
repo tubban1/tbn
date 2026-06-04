@@ -139,6 +139,10 @@ export default function MultiImage() {
     // Initialize results with placeholders
     setResults(new Array(scenes.length).fill(null));
     
+    // Add a short delay to allow React to render the UI and fetch dynamic chunks 
+    // before the browser's HTTP connection pool gets clogged by 6 heavy concurrent API requests.
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     const promises = scenes.map(async (scene, idx) => {
       try {
         if (activeTab === 'image') {
