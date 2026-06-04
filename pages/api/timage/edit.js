@@ -160,21 +160,32 @@ export default async function handler(req, res) {
     let permanentDisplayUrl = 'temp_placeholder';
 
     try {
-      console.log(`[TImage Edit] Starting synchronous Freeimage upload...`);
+      console.log(`[TImage Edit] Starting synchronous Freeimage upload for input...`);
       if (originalInputB64 && originalInputB64.startsWith('data:')) {
         const parts = originalInputB64.split(';base64,');
         const mimeType = parts[0].split(':')[1] || 'image/png';
         const b64Data = parts[1];
-        const uploadResult = await uploadToFreeimageHost(b64Data, `input_${Date.now()}.png`, mimeType);
+        const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png';
+        const uploadResult = await uploadToFreeimageHost(b64Data, `input_${Date.now()}.${ext}`, mimeType);
         permanentInputUrl = uploadResult.url;
         permanentInputDisplayUrl = uploadResult.displayUrl;
       }
+    } catch (inUploadErr) {
+      console.error('[TImage Edit] Input upload failed, falling back:', inUploadErr.message);
+      permanentInputUrl = originalInputB64 || 'temp_placeholder';
+      if (permanentInputUrl.startsWith('data:') && permanentInputUrl.length > 500) {
+        permanentInputUrl = 'error:input_base64_too_long';
+      }
+    }
 
+    try {
+      console.log(`[TImage Edit] Starting synchronous Freeimage upload for output...`);
       if (freeimageUrl.startsWith('data:')) {
         const parts = freeimageUrl.split(';base64,');
         const mimeType = parts[0].split(':')[1] || 'image/png';
         const b64Data = parts[1];
-        const uploadResult = await uploadToFreeimageHost(b64Data, `edited_${Date.now()}.png`, mimeType);
+        const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png';
+        const uploadResult = await uploadToFreeimageHost(b64Data, `edited_${Date.now()}.${ext}`, mimeType);
         permanentOutputUrl = uploadResult.url;
         permanentDisplayUrl = uploadResult.displayUrl;
       } else if (freeimageUrl.startsWith('http')) {
@@ -184,10 +195,13 @@ export default async function handler(req, res) {
       }
       console.log(`[TImage Edit] Synchronous Freeimage upload complete.`);
     } catch (uploadErr) {
-      console.error('[TImage Edit] Synchronous upload failed, falling back:', uploadErr.message);
-      permanentInputUrl = originalInputB64 || 'temp_placeholder';
+      console.error('[TImage Edit] Output upload failed, falling back:', uploadErr.message);
       permanentOutputUrl = freeimageUrl;
       permanentDisplayUrl = freeimageUrl;
+      if (permanentOutputUrl.startsWith('data:') && permanentOutputUrl.length > 500) {
+        permanentOutputUrl = 'error:upload_failed_base64_too_long';
+        permanentDisplayUrl = 'error:upload_failed_base64_too_long';
+      }
     }
 
     if (email) {
