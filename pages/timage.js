@@ -341,10 +341,14 @@ export default function TImage() {
           // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
           setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
 
-          const promises = batchPrompts.map(async (p, idx) => {
+          const promises = selectedOptimizedIndexes.map(async (idx) => {
+            const opt = optimizedResults[idx];
+            const p = opt.promptZh || opt.prompt;
             try {
               const res = await axios.post('/api/timage/generate', {
-                prompt: p,
+                prompt: p, // Legacy prompt parameter used as prompt_en fallback
+                prompt_en: opt.prompt,
+                prompt_zh: opt.promptZh,
                 size,
                 quality,
                 format,
@@ -409,6 +413,7 @@ export default function TImage() {
           // SINGLE GENERATION FLOW
           const response = await axios.post('/api/timage/generate', {
             prompt,
+            prompt_en: prompt,
             size,
             quality,
             format,

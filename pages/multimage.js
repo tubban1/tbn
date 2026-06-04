@@ -148,6 +148,8 @@ export default function MultiImage() {
           // Mode 2: Base image + local modify (Image-to-Image)
           const formData = new FormData();
           formData.append('prompt', scene.prompt);
+          formData.append('prompt_en', scene.prompt);
+          if (scene.description) formData.append('description', scene.description);
           if (email) formData.append('email', email);
           formData.append('size', unifiedSize);
           formData.append('image', baseImage);
@@ -161,6 +163,8 @@ export default function MultiImage() {
         } else {
           const res = await axios.post('/api/timage/generate', {
             prompt: scene.prompt,
+            prompt_en: scene.prompt,
+            description: scene.description,
             size: unifiedSize,
             email
           });

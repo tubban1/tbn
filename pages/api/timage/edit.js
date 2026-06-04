@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     await runMiddleware(req, res, upload.array('image', 2));
 
     const files = req.files;
-    const { prompt, size, n = '1', email } = req.body;
+    const { prompt, prompt_en, prompt_zh, description, size, n = '1', email } = req.body;
 
     if (!files || files.length === 0) {
       return res.status(400).json({ success: false, error: 'At least one image file is required' });
@@ -201,7 +201,17 @@ export default async function handler(req, res) {
         console.log(`[TImage] Deducted 5 credits for image editing. Remaining: ${finalCredits}`);
 
         console.log(`[TImage] Saving edited image record to DB for email: ${email}`);
-        const savedImage = await saveDrawImagePair(email, permanentInputUrl, permanentOutputUrl, permanentDisplayUrl, 'edit', prompt);
+        const actualPromptEn = prompt_en || prompt;
+        const savedImage = await saveDrawImagePair(
+          email, 
+          permanentInputUrl, 
+          permanentOutputUrl, 
+          permanentDisplayUrl, 
+          'edit', 
+          actualPromptEn,
+          prompt_zh || null,
+          description || null
+        );
         drawImageId = savedImage?.id || null;
       } catch (dbErr) {
         console.error('[TImage] Failed to update credits/save edit record to DB:', dbErr.message);

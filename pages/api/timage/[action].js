@@ -210,10 +210,10 @@ export default async function handler(req, res) {
     }
 
     else if (action === 'generate') {
-      const { prompt, size, quality, format = 'jpeg', email } = req.body;
+      const { prompt, prompt_en, prompt_zh, description, size, quality, format = 'jpeg', email } = req.body;
 
       if (!prompt) {
-        return res.status(400).json({ success: false, error: 'prompt is required' });
+        return res.status(400).json({ success: false, error: 'Prompt is required' });
       }
 
       await ensureCreditsTables();
@@ -340,7 +340,17 @@ export default async function handler(req, res) {
           console.log(`[TImage] Deducted 5 credits for image generation. Remaining: ${finalCredits}`);
 
           console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
-          const savedImage = await saveDrawImagePair(email, 'text-to-image', permanentOutputUrl, permanentDisplayUrl, 'text', prompt);
+          const actualPromptEn = prompt_en || prompt;
+          const savedImage = await saveDrawImagePair(
+            email, 
+            'text-to-image', 
+            permanentOutputUrl, 
+            permanentDisplayUrl, 
+            'text', 
+            actualPromptEn,
+            prompt_zh || null,
+            description || null
+          );
           drawImageId = savedImage?.id || null;
         } catch (dbErr) {
           console.error('[TImage] Failed to update credits/save generation record to DB:', dbErr.message);
