@@ -341,7 +341,7 @@ export default function TImage() {
           // Pre-initialize outputs with empty slots to trigger immediate placeholder rendering
           setCurrentSessionOutputs(new Array(batchPrompts.length).fill(null));
 
-          const promises = selectedOptimizedIndexes.map(async (idx) => {
+          const promises = selectedOptimizedIndexes.map(async (idx, arrayIndex) => {
             const opt = optimizedResults[idx];
             const p = opt.promptZh || opt.prompt;
             try {
@@ -362,7 +362,7 @@ export default function TImage() {
                 // Deliver this image immediately into its pre-allocated slot!
                 setCurrentSessionOutputs(prev => {
                   const updated = [...prev];
-                  updated[idx] = item;
+                  updated[arrayIndex] = item;
                   return updated;
                 });
                 
@@ -375,7 +375,7 @@ export default function TImage() {
                 console.error(`Prompt slot ${idx} failed:`, res.data?.error);
                 setCurrentSessionOutputs(prev => {
                   const updated = [...prev];
-                  updated[idx] = 'error';
+                  updated[arrayIndex] = 'error';
                   return updated;
                 });
                 return null;
@@ -384,7 +384,7 @@ export default function TImage() {
               console.error(`Prompt slot ${idx} error:`, err);
               setCurrentSessionOutputs(prev => {
                 const updated = [...prev];
-                updated[idx] = 'error';
+                updated[arrayIndex] = 'error';
                 return updated;
               });
               return null;
