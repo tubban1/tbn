@@ -411,6 +411,7 @@ export default function TImage() {
           }
         } else {
           // SINGLE GENERATION FLOW
+          setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/generate', {
             prompt,
             prompt_en: prompt,
@@ -452,6 +453,7 @@ export default function TImage() {
           formData.append('image', image2);
         }
 
+        setCurrentSessionOutputs([null]); // Trigger loading animation
         const response = await axios.post('/api/timage/edit', formData);
 
         if (response.data?.success) {
