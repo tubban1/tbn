@@ -325,6 +325,10 @@ export default async function handler(req, res) {
         console.log(`[TImage] Synchronous Freeimage upload complete. URL: ${permanentOutputUrl}`);
       } catch (uploadErr) {
         console.error('[TImage] Synchronous upload failed, falling back to original URL:', uploadErr.message);
+        if (uploadErr.base64Fallback) {
+          permanentOutputUrl = uploadErr.base64Fallback;
+          permanentDisplayUrl = uploadErr.base64Fallback;
+        }
       }
 
       let dbOutputUrl = permanentOutputUrl;

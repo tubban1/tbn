@@ -193,8 +193,8 @@ export default async function handler(req, res) {
       console.log(`[TImage Edit] Synchronous Freeimage upload complete.`);
     } catch (uploadErr) {
       console.error('[TImage Edit] Output upload failed, falling back:', uploadErr.message);
-      permanentOutputUrl = freeimageUrl;
-      permanentDisplayUrl = freeimageUrl;
+      permanentOutputUrl = uploadErr.base64Fallback || freeimageUrl;
+      permanentDisplayUrl = uploadErr.base64Fallback || freeimageUrl;
     }
 
     let dbOutputUrl = permanentOutputUrl;
