@@ -3,6 +3,7 @@ import Head from 'next/head';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
 import Header from '../components/Header';
+import HistoryGallery from '../components/HistoryGallery';
 
 const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
   ssr: false
@@ -1089,78 +1090,11 @@ export default function TImage() {
         </div>
 
         {/* History Gallery Section */}
-        {emailStatus === 'verified' && (
-          <section className="gallery-section">
-            <div className="gallery-header">
-              <h3>📦 我的旅游物料作品库</h3>
-              <p>保存您历史生成的全部高清图文、海报与规划图对</p>
-            </div>
-
-            {isLoadingHistory ? (
-              <div className="gallery-loader">⏳ 正在读取您的云端物料库...</div>
-            ) : historyList.length === 0 ? (
-              <div className="gallery-empty">您还没有生成过任何画作，在上方填写参数生成您的第一张作品吧！</div>
-            ) : (
-              <div className="gallery-grid">
-                {historyList.map((item) => (
-                  <div key={item.id} className="gallery-card">
-                    <div className="gallery-img-container" style={{ position: 'relative' }}>
-                      <a href={item.generated_url} target="_blank" rel="noreferrer" style={{ display: 'block', position: 'relative' }}>
-                        <img src={item.display_url || item.generated_url} alt={item.style} className="gallery-img" style={{ transition: 'transform 0.3s ease' }} />
-                        <div className="preview-overlay" style={{
-                          position: 'absolute',
-                          top: 0, left: 0, right: 0, bottom: 0,
-                          background: 'rgba(0,0,0,0.4)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '1rem',
-                          fontWeight: 'bold',
-                          opacity: 0,
-                          transition: 'opacity 0.2s',
-                        }}>
-                          🔗 点击预览
-                        </div>
-                      </a>
-                    </div>
-                    <div className="gallery-card-info" style={{ position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span className="gallery-style-badge">{item.style === 'edit' ? '📸 AI编辑' : '✨ 文本生成'}</span>
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigator.clipboard.writeText(item.prompt || '');
-                            const btn = e.currentTarget;
-                            const originalText = btn.innerHTML;
-                            btn.innerHTML = '✅ 已复制';
-                            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
-                          }}
-                          style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            color: '#fff',
-                            fontSize: '0.7rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          📋 复制提示词
-                        </button>
-                      </div>
-                      <p className="gallery-prompt-text">{item.prompt || '旅游图景'}</p>
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        <HistoryGallery 
+          email={email}
+          emailStatus={emailStatus}
+          initialHistoryList={historyList}
+        />
       </main>
 
       <style jsx>{`
