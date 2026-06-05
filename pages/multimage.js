@@ -111,11 +111,17 @@ export default function MultiImage() {
     
     try {
       // We will create a new endpoint /api/timage/extract-scenes
-      const response = await axios.post('/api/timage/extract-scenes', { 
+      const payload = { 
         text: copyText,
         unifiedStyle: activeTab === 'text' ? unifiedStyle : null,
         sceneCount
-      });
+      };
+      
+      if (activeTab === 'image' && baseImagePreview) {
+        payload.image = baseImagePreview;
+      }
+
+      const response = await axios.post('/api/timage/extract-scenes', payload);
       if (response.data?.success) {
         setScenes(response.data.scenes);
         setInfoMessage(`成功解析出 ${response.data.scenes.length} 个分镜画面！`);

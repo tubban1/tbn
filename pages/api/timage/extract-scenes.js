@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { text, unifiedStyle, sceneCount = 6 } = req.body;
+  const { text, unifiedStyle, sceneCount = 6, image } = req.body;
   const targetSceneCount = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
 
   if (!text || typeof text !== 'string') {
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
 Your task is to analyze the user's provided long text, story, or article, and split it into EXACTLY ${targetSceneCount} logical visual scenes. You MUST generate exactly ${targetSceneCount} scenes, no more, no less.
 For each scene, extract the core action/visual and write a highly detailed, professional English image generation prompt.${styleInstruction}
-IMPORTANT: Our image model is highly capable of rendering typography. If the user's text requests words, captions, or typography to be included IN the image, you MUST specify exactly what text to write in the prompt (e.g. 'with the text "Hello" written on it'). Do NOT append "no text" to the prompt if the user asks for text!
+${image ? "IMPORTANT: The user has provided a base image. You MUST analyze this base image. Ensure that your extracted scene prompts are highly relevant and visually consistent with the main subjects, composition, or elements found in this base image. The prompts should describe scenes that can naturally be derived or modified from this base image.\n" : ""}IMPORTANT: Our image model is highly capable of rendering typography. If the user's text requests words, captions, or typography to be included IN the image, you MUST specify exactly what text to write in the prompt (e.g. 'with the text "Hello" written on it'). Do NOT append "no text" to the prompt if the user asks for text!
 Also provide a short Chinese description of what the scene is about.
 
 Return the response STRICTLY as a JSON array of objects. Do not include markdown code blocks around the JSON.
@@ -43,11 +43,17 @@ Format:
   }
 ]`;
 
-    const userMessage = `Please analyze the following text and extract scenes:\n\n${text}`;
+    const userMessageContent = image 
+      ? [
+          { type: 'text', text: `Please analyze the following text and the provided base image, then extract scenes:\n\n${text}` },
+          { type: 'image_url', image_url: { url: image } }
+        ]
+      : `Please analyze the following text and extract scenes:\n\n${text}`;
 
     console.log(`[Extract Scenes] Sending request to VectorEngine:`, {
       model: promptModel,
-      textLength: text.length
+      textLength: text.length,
+      hasImage: !!image
     });
 
     const response = await axios.post(
@@ -56,7 +62,7 @@ Format:
         model: promptModel,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
+          { role: 'user', content: userMessageContent }
         ],
         temperature: 0.7
       },
