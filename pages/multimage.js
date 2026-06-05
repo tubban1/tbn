@@ -33,6 +33,22 @@ export default function MultiImage() {
   const [infoMessage, setInfoMessage] = useState('');
   
   const [editingImageIdx, setEditingImageIdx] = useState(false);
+  const [editingPromptIdx, setEditingPromptIdx] = useState(null);
+  const [editingPromptText, setEditingPromptText] = useState('');
+
+  const openPromptEditModal = (idx) => {
+    setEditingPromptIdx(idx);
+    setEditingPromptText(scenes[idx]?.prompt || '');
+  };
+
+  const handleSavePromptAndRegenerate = () => {
+    if (editingPromptIdx === null) return;
+    const newScenes = [...scenes];
+    newScenes[editingPromptIdx].prompt = editingPromptText;
+    setScenes(newScenes);
+    handleRetryGenerate(editingPromptIdx);
+    setEditingPromptIdx(null);
+  };
 
   const EMAIL_REGEX = /^[^s@]+@[^s@]+\.[^s@]+$/;
   const [email, setEmail] = useState('');
@@ -469,7 +485,16 @@ export default function MultiImage() {
               {results.map((res, idx) => (
                 <div key={idx} className="result-item">
                   
-                  <div className="result-header">镜头 {idx + 1}</div>
+                  <div className="result-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>镜头 {idx + 1}</span>
+                    <button 
+                      onClick={() => openPromptEditModal(idx)}
+                      style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '1.2rem', padding: 0 }}
+                      title="编辑提示词并重新生成"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                   {res === null ? (
                     <div className="result-loading" style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                        <div style={{ transform: 'scale(0.35)', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -549,6 +574,25 @@ export default function MultiImage() {
           setEditingImageIdx(false);
         }}
       />
+
+      {editingPromptIdx !== null && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" style={{ background: '#1e293b', padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '600px', border: '1px solid #334155' }}>
+            <h3 style={{ marginTop: 0, color: '#fff' }}>修改镜头 {editingPromptIdx + 1} 的提示词</h3>
+            <textarea
+              value={editingPromptText}
+              onChange={(e) => setEditingPromptText(e.target.value)}
+              rows={8}
+              className="input-textarea"
+              style={{ marginTop: '1rem', marginBottom: '1.5rem', width: '100%', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button className="btn-cancel" onClick={() => setEditingPromptIdx(null)} style={{ background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>取消</button>
+              <button className="btn-primary" style={{ width: 'auto', padding: '0.5rem 1.5rem' }} onClick={handleSavePromptAndRegenerate}>保存并重新生成</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .result-img-wrapper:hover .preview-overlay { opacity: 1 !important; }

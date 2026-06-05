@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are an expert Storyboard Director and Prompt Engineer.
 Your task is to analyze the user's provided long text, story, or article, and split it into EXACTLY ${targetSceneCount} logical visual scenes. You MUST generate exactly ${targetSceneCount} scenes, no more, no less.
-For each scene, extract the core action/visual and write a highly detailed, professional English image generation prompt.${styleInstruction}
+For each scene, extract the core action/visual and write a highly detailed, professional Chinese image generation prompt.${styleInstruction}
 ${image ? "IMPORTANT: The user has provided a base image. You MUST analyze this base image. Ensure that your extracted scene prompts are highly relevant and visually consistent with the main subjects, composition, or elements found in this base image. The prompts should describe scenes that can naturally be derived or modified from this base image.\n" : ""}IMPORTANT: Our image model is highly capable of rendering typography. If the user's text requests words, captions, or typography to be included IN the image, you MUST specify exactly what text to write in the prompt (e.g. 'with the text "Hello" written on it'). Do NOT append "no text" to the prompt if the user asks for text!
 Also provide a short Chinese description of what the scene is about.
 
@@ -39,7 +39,7 @@ Format:
 [
   {
     "description": "Scene description in Chinese",
-    "prompt": "highly detailed english prompt for image generation, cinematic lighting, 8k..."
+    "prompt": "highly detailed chinese prompt for image generation, cinematic lighting, 8k..."
   }
 ]`;
 
