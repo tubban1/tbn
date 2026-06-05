@@ -39,15 +39,15 @@ Format:
 [
   {
     "description": "Scene description in Chinese",
-    "prompt": "highly detailed chinese prompt for image generation, cinematic lighting, 8k..."
+    "prompt": "highly detailed prompt in Chinese for image generation, cinematic lighting, 8k..."
   }
 ]`;
 
-    const userMessageContent = image 
+    const userMessageContent = image
       ? [
-          { type: 'text', text: `Please analyze the following text and the provided base image, then extract scenes:\n\n${text}` },
-          { type: 'image_url', image_url: { url: image } }
-        ]
+        { type: 'text', text: `Please analyze the following text and the provided base image, then extract scenes:\n\n${text}` },
+        { type: 'image_url', image_url: { url: image } }
+      ]
       : `Please analyze the following text and extract scenes:\n\n${text}`;
 
     console.log(`[Extract Scenes] Sending request to VectorEngine:`, {
