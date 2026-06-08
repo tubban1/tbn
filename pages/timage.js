@@ -121,13 +121,10 @@ export default function TImage() {
   const [format, setFormat] = useState('jpeg');
 
   // Image Uploads (Image-to-Image / AI旅拍)
-  const [image1, setImage1] = useState(null);
-  const [image1Preview, setImage1Preview] = useState(null);
-  const [image2, setImage2] = useState(null);
-  const [image2Preview, setImage2Preview] = useState(null);
+  const [uploadedImages, setUploadedImages] = useState([]); // Array of { file, preview }
 
   // Image Editor States
-  const [editingImageIdx, setEditingImageIdx] = useState(null); // null, 1, or 2
+  const [editingImageIdx, setEditingImageIdx] = useState(null); // null or index
 
   // Status & loading states
   const [isProcessing, setIsProcessing] = useState(false);
@@ -153,8 +150,7 @@ export default function TImage() {
   const [historyList, setHistoryList] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  const fileInputRef1 = useRef(null);
-  const fileInputRef2 = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Update prompt whenever parameters change
   useEffect(() => {
@@ -229,88 +225,81 @@ export default function TImage() {
     }
   };
 
-  const handleFileChange = async (e, index) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('单张图片大小不能超过 10MB！');
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    
+    if (uploadedImages.length + files.length > 6) {
+      setErrorMessage('最多只能上传 6 张图片！');
       return;
     }
 
-    if (file.type.startsWith('image/')) {
-      // Auto-compress large images to bypass Vercel 4.5MB serverless payload limit
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 1536;
-          
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            const previewUrl = canvas.toDataURL('image/jpeg', 0.85);
-            
-            if (index === 1) {
-              setImage1(compressedFile);
-              setImage1Preview(previewUrl);
-            } else {
-              setImage2(compressedFile);
-              setImage2Preview(previewUrl);
-            }
-          }, 'image/jpeg', 0.85);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Documents (PDF/DOCX/TXT)
-      if (file.size > 4.5 * 1024 * 1024) {
-        setErrorMessage('由于云服务限制，非图片类文档大小请控制在 4MB 以内！');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (index === 1) {
-          setImage1(file);
-          setImage1Preview(reader.result);
-        } else {
-          setImage2(file);
-          setImage2Preview(reader.result);
+    const newImages = [];
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              
+              const maxDim = 1536;
+              if (width > height && width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
+              
+              canvas.toBlob((blob) => {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                const previewUrl = canvas.toDataURL('image/jpeg', quality);
+                newImages.push({ file: compressedFile, preview: previewUrl });
+                resolve();
+              }, 'image/jpeg', quality);
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      } else {
+        if (file.size > 4.5 * 1024 * 1024) {
+          setErrorMessage('由于云服务限制，非图片类文档大小请控制在 4MB 以内！');
+          continue;
         }
-      };
-      reader.readAsDataURL(file);
+        await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            newImages.push({ file, preview: reader.result });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
+      }
     }
+    
+    setUploadedImages(prev => [...prev, ...newImages]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeImage = (index) => {
-    if (index === 1) {
-      setImage1(null);
-      setImage1Preview(null);
-      if (fileInputRef1.current) fileInputRef1.current.value = '';
-    } else {
-      setImage2(null);
-      setImage2Preview(null);
-      if (fileInputRef2.current) fileInputRef2.current.value = '';
-    }
+  const removeImage = (indexToRemove) => {
+    setUploadedImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleOptimizePrompt = async () => {
@@ -399,7 +388,7 @@ export default function TImage() {
           
           try {
             let res;
-            if (!image1) {
+            if (uploadedImages.length === 0) {
               res = await axios.post('/api/timage/generate', {
                 prompt: p,
                 prompt_en: opt.prompt,
@@ -416,8 +405,9 @@ export default function TImage() {
               formData.append('prompt_zh', opt.promptZh);
               formData.append('size', size);
               formData.append('email', email);
-              formData.append('image', image1);
-              if (image2) formData.append('image', image2);
+              uploadedImages.forEach(img => {
+                formData.append('image', img.file);
+              });
               res = await axios.post('/api/timage/edit', formData);
             }
             
@@ -479,7 +469,7 @@ export default function TImage() {
         }
       } else {
         // SINGLE GENERATION FLOW
-        if (!image1) {
+        if (uploadedImages.length === 0) {
           setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/generate', {
             prompt,
@@ -508,8 +498,9 @@ export default function TImage() {
           formData.append('prompt', prompt);
           formData.append('size', size);
           formData.append('email', email);
-          formData.append('image', image1);
-          if (image2) formData.append('image', image2);
+          uploadedImages.forEach(img => {
+            formData.append('image', img.file);
+          });
 
           setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/edit', formData);
@@ -791,59 +782,40 @@ export default function TImage() {
                 <label>📝 绘画引擎指令 Prompts (您可以手动输入，或点击 📎 附上参考图/文档)</label>
 
                 {/* Unified Uploads Preview Zone */}
-                {(image1Preview || image2Preview) && (
-                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                    {image1Preview && (
+                {uploadedImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    {uploadedImages.map((img, idx) => (
                       <div 
-                        onClick={() => setEditingImageIdx(1)}
+                        key={idx}
+                        onClick={() => setEditingImageIdx(idx)}
                         style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: 'pointer', transition: 'transform 0.2s' }}
                         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         title="点击展开编辑/标记"
                       >
-                        {image1 && image1.type && image1.type.startsWith('image/') ? (
-                          <img src={image1Preview} alt="Image 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {img.file && img.file.type && img.file.type.startsWith('image/') ? (
+                          <img src={img.preview} alt={`Image ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '24px' }}>
                             📄
                           </div>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); removeImage(1); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeImage(idx); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
                       </div>
-                    )}
-                    {image2Preview && (
-                      <div 
-                        onClick={() => setEditingImageIdx(2)}
-                        style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: 'pointer', transition: 'transform 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        title="点击展开编辑/标记"
-                      >
-                        {image2 && image2.type && image2.type.startsWith('image/') ? (
-                          <img src={image2Preview} alt="Image 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '24px' }}>
-                            📄
-                          </div>
-                        )}
-                        <button onClick={(e) => { e.stopPropagation(); removeImage(2); }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
 
                 <div style={{ position: 'relative', width: '100%' }}>
                   {/* Hidden File Inputs */}
-                  <input type="file" ref={fileInputRef1} onChange={(e) => handleFileChange(e, 1)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
-                  <input type="file" ref={fileInputRef2} onChange={(e) => handleFileChange(e, 2)} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" />
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" multiple />
 
                   {/* Attachment Paperclip Button */}
                   <button 
                     type="button"
                     onClick={() => {
-                      if (!image1Preview) fileInputRef1.current.click();
-                      else if (!image2Preview) fileInputRef2.current.click();
-                      else alert('最多只能同时上传两个参考文件！');
+                      if (uploadedImages.length < 6) fileInputRef.current.click();
+                      else alert('最多只能上传 6 个参考文件！');
                     }}
                     style={{
                       position: 'absolute',
@@ -2005,14 +1977,14 @@ export default function TImage() {
       <ImageMarkupModal 
         isOpen={editingImageIdx !== null}
         onClose={() => setEditingImageIdx(null)}
-        imageUrl={editingImageIdx === 1 ? image1Preview : (editingImageIdx === 2 ? image2Preview : null)}
+        imageUrl={editingImageIdx !== null && uploadedImages[editingImageIdx] ? uploadedImages[editingImageIdx].preview : null}
         onSave={(file, previewUrl) => {
-          if (editingImageIdx === 1) {
-            setImage1(file);
-            setImage1Preview(previewUrl);
-          } else if (editingImageIdx === 2) {
-            setImage2(file);
-            setImage2Preview(previewUrl);
+          if (editingImageIdx !== null) {
+            setUploadedImages(prev => {
+              const newArr = [...prev];
+              newArr[editingImageIdx] = { file, preview: previewUrl };
+              return newArr;
+            });
           }
           setEditingImageIdx(null);
         }}

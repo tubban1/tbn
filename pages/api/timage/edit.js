@@ -41,8 +41,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Run the multer middleware to handle up to 2 files named 'image'
-    await runMiddleware(req, res, upload.array('image', 2));
+    // Run the multer middleware to handle up to 6 files named 'image'
+    await runMiddleware(req, res, upload.array('image', 6));
 
     const files = req.files;
     const { prompt, prompt_en, prompt_zh, description, size, n = '1', email } = req.body;
