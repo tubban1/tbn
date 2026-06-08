@@ -142,6 +142,7 @@ export default function TImage() {
 
   // Email verification state (Simplifed directly calling backend pre-check)
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [emailStatus, setEmailStatus] = useState('none'); // none | verified
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -169,27 +170,34 @@ export default function TImage() {
   // Load Email and Credits on Start
   useEffect(() => {
     const storedEmail = localStorage.getItem('timage_email');
+    const storedPassword = localStorage.getItem('timage_password');
     const storedVerified = localStorage.getItem('timage_verified') === 'true';
 
-    if (storedEmail && storedVerified) {
+    if (storedEmail && storedPassword && storedVerified) {
       setEmail(storedEmail);
-      handleVerifyEmail(storedEmail);
+      setPassword(storedPassword);
+      handleVerifyEmail(storedEmail, storedPassword);
     }
   }, []);
 
-  const handleVerifyEmail = async (emailToVerify) => {
+  const handleVerifyEmail = async (emailToVerify, passwordToVerify) => {
     if (!emailToVerify || !EMAIL_REGEX.test(emailToVerify)) {
       setErrorMessage('请输入有效的电子邮箱！');
+      return;
+    }
+    if (!passwordToVerify) {
+      setErrorMessage('请输入密码！');
       return;
     }
     setIsCheckingEmail(true);
     setErrorMessage('');
     try {
-      const response = await axios.post('/api/timage/pre-check', { email: emailToVerify });
+      const response = await axios.post('/api/timage/pre-check', { email: emailToVerify, password: passwordToVerify });
       if (response.data?.success) {
         setEmailStatus('verified');
         setCredits(response.data.credits);
         localStorage.setItem('timage_email', emailToVerify);
+        localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
         loadHistory(emailToVerify);
       }
@@ -203,8 +211,10 @@ export default function TImage() {
 
   const handleLogout = () => {
     localStorage.removeItem('timage_email');
+    localStorage.removeItem('timage_password');
     localStorage.removeItem('timage_verified');
     setEmail('');
+    setPassword('');
     setEmailStatus('none');
     setCredits(0);
     setHistoryList([]);
@@ -545,6 +555,8 @@ export default function TImage() {
         subtitle="旅游规划与获客 AI 智绘 Agent"
         email={email}
         setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
         emailStatus={emailStatus}
         credits={credits}
         isCheckingEmail={isCheckingEmail}

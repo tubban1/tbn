@@ -27,9 +27,9 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'pre-check') {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ success: false, error: 'Email is required' });
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: '账号和密码不能为空！' });
       }
 
       await ensureCreditsTables();
@@ -37,8 +37,11 @@ export default async function handler(req, res) {
       const CREDITS_PER_IMAGE = 5;
       let currentCredits = 0;
 
-      const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
+        if (userRows[0].password !== password) {
+          return res.status(401).json({ success: false, error: '密码错误，请重试！' });
+        }
         currentCredits = userRows[0].credits;
         if (currentCredits < CREDITS_PER_IMAGE) {
           return res.status(400).json({ success: false, error: 'Insufficient credits', credits: currentCredits });
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
       } else {
         // New user: grant 30 free credits
         console.log(`[TImage Pre-check] Creating user with 30 free credits for ${email}`);
-        await query('INSERT INTO user_credits (email, credits) VALUES (?, 30)', [email]);
+        await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, 30)', [email, password]);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']

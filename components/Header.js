@@ -5,6 +5,8 @@ export default function Header({
   subtitle, 
   email, 
   setEmail, 
+  password,
+  setPassword,
   emailStatus, 
   credits, 
   isCheckingEmail, 
@@ -37,14 +39,24 @@ export default function Header({
               <div className="login-form">
                 <input
                   type="email"
-                  placeholder="输入邮箱登录 / 自动注册..."
+                  placeholder="账号 (邮箱)..."
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="login-input"
+                  className="login-input email-input"
+                />
+                <input
+                  type="password"
+                  placeholder="密码..."
+                  value={password || ''}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="login-input password-input"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onVerifyEmail(email, password);
+                  }}
                 />
                 <button
-                  onClick={() => onVerifyEmail(email)}
-                  disabled={isCheckingEmail}
+                  onClick={() => onVerifyEmail(email, password)}
+                  disabled={isCheckingEmail || !email || !password}
                   className="btn-login"
                 >
                   {isCheckingEmail ? '登录中...' : '登录 / 注册'}
