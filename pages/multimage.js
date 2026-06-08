@@ -280,11 +280,6 @@ export default function MultiImage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('图片大小不能超过 10MB！');
-      return;
-    }
-
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -308,20 +303,26 @@ export default function MultiImage() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
           
+          const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
+          
           canvas.toBlob((blob) => {
             const compressedFile = new File([blob], file.name, {
               type: 'image/jpeg',
               lastModified: Date.now(),
             });
-            const previewUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const previewUrl = canvas.toDataURL('image/jpeg', quality);
             setBaseImage(compressedFile);
             setBaseImagePreview(previewUrl);
-          }, 'image/jpeg', 0.85);
+          }, 'image/jpeg', quality);
         };
         img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     } else {
+      if (file.size > 4.5 * 1024 * 1024) {
+        setErrorMessage('非图片文件大小不能超过 4.5MB！');
+        return;
+      }
       setBaseImage(file);
       setBaseImagePreview(URL.createObjectURL(file));
     }
