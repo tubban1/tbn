@@ -347,8 +347,11 @@ export default function TImage() {
     }
   };
 
-  // Generate Image Action
+  const isProcessingRef = useRef(false);
+
   const handleGenerate = async () => {
+    if (isProcessingRef.current) return;
+    
     setErrorMessage('');
     setInfoMessage('');
     setGeneratedUrl(null);
@@ -379,6 +382,7 @@ export default function TImage() {
       }
     }
 
+    isProcessingRef.current = true;
     setIsProcessing(true);
 
     try {
@@ -536,6 +540,7 @@ export default function TImage() {
       setCurrentSessionOutputs(prev => prev.map(item => item === null ? 'error' : item));
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 

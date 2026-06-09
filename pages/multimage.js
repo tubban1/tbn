@@ -161,9 +161,13 @@ export default function MultiImage() {
     }
   };
 
+  const isGeneratingRef = useRef(false);
+
   const handleGenerateAll = async () => {
     if (scenes.length === 0) return;
+    if (isGeneratingRef.current) return;
     
+    isGeneratingRef.current = true;
     setIsGenerating(true);
     setErrorMessage('');
     setInfoMessage('');
@@ -218,6 +222,7 @@ export default function MultiImage() {
 
     await Promise.all(promises);
     setIsGenerating(false);
+    isGeneratingRef.current = false;
     setInfoMessage('✅ 批量生成完毕！');
     if (email) {
       const lastRes = await axios.post('/api/timage/pre-check', { email });
