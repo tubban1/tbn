@@ -127,11 +127,16 @@ export default function MultiImage() {
   };
 
   // Parse long text into scenes
+  const isExtractingRef = useRef(false);
+
   const handleExtractScenes = async () => {
     if (!copyText.trim()) {
       setErrorMessage('请输入长文案或文档内容！');
       return;
     }
+    if (isExtractingRef.current) return;
+
+    isExtractingRef.current = true;
     setIsExtracting(true);
     setErrorMessage('');
     
@@ -158,6 +163,7 @@ export default function MultiImage() {
       setErrorMessage(err.response?.data?.error || '网络错误，无法解析文案');
     } finally {
       setIsExtracting(false);
+      isExtractingRef.current = false;
     }
   };
 

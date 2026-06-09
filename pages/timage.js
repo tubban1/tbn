@@ -312,9 +312,13 @@ export default function TImage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const isOptimizingRef = useRef(false);
+
   const handleOptimizePrompt = async () => {
     if (!simpleIdea.trim()) return;
+    if (isOptimizingRef.current) return;
 
+    isOptimizingRef.current = true;
     setIsOptimizing(true);
     setErrorMessage('');
     setInfoMessage('');
@@ -344,6 +348,7 @@ export default function TImage() {
       setErrorMessage(err.response?.data?.error || err.message || '网络请求错误，请稍后再试');
     } finally {
       setIsOptimizing(false);
+      isOptimizingRef.current = false;
     }
   };
 
