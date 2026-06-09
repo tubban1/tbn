@@ -638,7 +638,7 @@ export default function TImage() {
 
                 {selectedType.id === 'itinerary' && (
                   <div className="param-item">
-                    <label>📝 行程亮点 (Highlights - 仅长图攻略有效)</label>
+                    <label>📝 行程亮点 (Highlights)</label>
                     <input
                       type="text"
                       value={highlights}
