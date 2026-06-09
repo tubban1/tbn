@@ -221,14 +221,16 @@ export default async function handler(req, res) {
 
         console.log(`[TImage] Saving edited image record to DB for email: ${email}`);
         const actualPromptEn = prompt_en || prompt;
+        const actualPromptZh = prompt_zh || prompt;
         const savedImage = await saveDrawImagePair(
           email, 
           dbInputUrl, 
           dbOutputUrl, 
           dbDisplayUrl, 
           'edit', 
-          actualPromptEn,
-          prompt_zh || null,
+          prompt, // Main prompt (Chinese)
+          actualPromptEn, // English prompt
+          actualPromptZh, // Chinese prompt
           description || null
         );
         drawImageId = savedImage?.id || null;
