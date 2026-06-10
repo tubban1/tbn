@@ -1,12 +1,14 @@
 import axios from 'axios';
 import https from 'https';
+import FormData from 'form-data';
 import { query } from '../../../lib/db';
 import {
   ensureCreditsTables,
   ensureDrawImagesTable,
   saveDrawImagePair,
   processAndUploadImageUrl,
-  uploadToFreeimageHost
+  uploadToFreeimageHost,
+  calculateCreditsForSize
 } from '../../../lib/image-agent-helpers';
 
 export const config = {
@@ -262,7 +264,7 @@ export default async function handler(req, res) {
 
       await ensureCreditsTables();
 
-      const CREDITS_PER_IMAGE = 5;
+      const CREDITS_PER_IMAGE = calculateCreditsForSize(size);
       let currentCredits = 0;
 
       if (email) {

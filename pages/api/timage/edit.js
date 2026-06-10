@@ -7,7 +7,8 @@ import {
   ensureCreditsTables, 
   saveDrawImagePair, 
   uploadToFreeimageHost,
-  processAndUploadImageUrl
+  processAndUploadImageUrl,
+  calculateCreditsForSize
 } from '../../../lib/image-agent-helpers';
 
 export const config = {
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
 
     await ensureCreditsTables();
 
-    const CREDITS_PER_IMAGE = 5;
+    const CREDITS_PER_IMAGE = calculateCreditsForSize(size);
     let currentCredits = 0;
 
     if (email) {

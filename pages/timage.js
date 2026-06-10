@@ -380,15 +380,25 @@ export default function TImage() {
     // Determine if batch mode is active
     const isBatchMode = selectedOptimizedIndexes.length > 1;
 
+    let creditsPerImage = 5;
+    if (size) {
+      const [w, h] = size.split('x').map(Number);
+      if (w && h) {
+        const pixels = w * h;
+        if (pixels >= 16000000) creditsPerImage = 20;
+        else if (pixels >= 3000000) creditsPerImage = 10;
+      }
+    }
+
     if (isBatchMode) {
-      const totalCreditsNeeded = selectedOptimizedIndexes.length * 5;
+      const totalCreditsNeeded = selectedOptimizedIndexes.length * creditsPerImage;
       if (credits < totalCreditsNeeded) {
-        setErrorMessage(`额度不足！批量生成 ${selectedOptimizedIndexes.length} 张图需要 ${totalCreditsNeeded} 额度，当前仅剩 ${credits} 额度。请点击右上角“充值请联系”扫码充值！`);
+        setErrorMessage(`额度不足！批量生成 ${selectedOptimizedIndexes.length} 张图需要 ${totalCreditsNeeded} 额度（大规格图更费积分），当前仅剩 ${credits} 额度。请点击右上角“充值请联系”扫码充值！`);
         return;
       }
     } else {
-      if (credits < 5) {
-        setErrorMessage('额度不足！请点击右上角“充值请联系”按钮扫码获取充值额度。');
+      if (credits < creditsPerImage) {
+        setErrorMessage(`额度不足！单张生成当前尺寸需要 ${creditsPerImage} 额度，当前仅剩 ${credits} 额度。请点击右上角“充值请联系”按钮扫码充值。`);
         return;
       }
       if (!prompt) {
@@ -889,11 +899,16 @@ export default function TImage() {
                 <div className="setting-control">
                   <label>📐 输出比例/尺寸</label>
                   <select value={size} onChange={(e) => setSize(e.target.value)} className="setting-select">
-                    <option value="1024x1792">9:16 长图攻略 / 竖版海报 (1024x1792)</option>
-                    <option value="1024x1365">3:4 小红书种草 / 旅拍写真 (1024x1365)</option>
-                    <option value="1792x1024">16:9 风光大片 / 目的地宽屏 (1792x1024)</option>
-                    <option value="1024x1024">1:1 正方形图文配图 (1024x1024)</option>
-                    <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768)</option>
+                    <option value="1024x1792">9:16 长图攻略 / 竖版海报 (1024x1792) [5积分]</option>
+                    <option value="1536x2688">9:16 超清长图 / 竖版大片 (1536x2688) [10积分]</option>
+                    <option value="1024x1365">3:4 小红书种草 / 旅拍写真 (1024x1365) [5积分]</option>
+                    <option value="1536x2048">3:4 高清写真 / 大图特写 (1536x2048) [10积分]</option>
+                    <option value="1792x1024">16:9 风光大片 / 目的地宽屏 (1792x1024) [5积分]</option>
+                    <option value="2688x1536">16:9 影院级超清风光 / 宽幅 (2688x1536) [10积分]</option>
+                    <option value="1024x1024">1:1 正方形图文配图 (1024x1024) [5积分]</option>
+                    <option value="2048x2048">1:1 超清正方形 / 封面图 (2048x2048) [10积分]</option>
+                    <option value="4096x4096">1:1 殿堂级极清画质 / 海报 (4096x4096) [20积分]</option>
+                    <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768) [5积分]</option>
                   </select>
                 </div>
 
