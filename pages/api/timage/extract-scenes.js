@@ -1,12 +1,14 @@
 import axios from 'axios';
 import https from 'https';
+import { query } from '../../../lib/db';
+import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { text, unifiedStyle, sceneCount = 6, image } = req.body;
+  const { text, unifiedStyle, sceneCount = 6, image, email } = req.body;
   const targetSceneCount = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
 
   if (!text || typeof text !== 'string') {
@@ -22,6 +24,33 @@ export default async function handler(req, res) {
 
     if (!apiKey) {
       return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
+    }
+
+    await ensureCreditsTables();
+
+    const CREDITS_PER_TEXT = 1;
+
+    if (email) {
+      const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+      if (userRows && userRows.length > 0) {
+        const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
+        if (updateResult.affectedRows === 0) {
+          return res.status(400).json({ success: false, error: 'Insufficient credits for extracting scenes' });
+        }
+        
+        req.creditsPreDeducted = true;
+        req.emailForRefund = email;
+        req.creditsAmountToRefund = CREDITS_PER_TEXT;
+      } else {
+        await query('INSERT INTO user_credits (email, credits) VALUES (?, 29)', [email]);
+        await query(
+          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
+          [email, 'gift', 30, 30, 'New user welcome bonus']
+        );
+        req.creditsPreDeducted = true;
+        req.emailForRefund = email;
+        req.creditsAmountToRefund = CREDITS_PER_TEXT;
+      }
     }
 
     const styleInstruction = unifiedStyle
@@ -103,16 +132,39 @@ Format:
       scenes = scenes.slice(0, targetSceneCount);
     }
 
+    if (email) {
+      try {
+        await query(
+          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+          [email, 'consume', -CREDITS_PER_TEXT, email, 'Extract scenes']
+        );
+      } catch (dbErr) {
+        console.error('[Extract Scenes] Failed to save transaction log:', dbErr.message);
+      }
+    }
+
     return res.json({
       success: true,
       scenes
     });
-
   } catch (error) {
-    console.error('[Extract Scenes Error]', error.response?.data || error.message);
-    return res.status(500).json({
-      success: false,
-      error: error.response?.data?.error?.message || error.message || 'Server Error'
-    });
+    if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
+      console.log(`[Extract Scenes] Refunding ${req.creditsAmountToRefund} credits to ${req.emailForRefund} due to error`);
+      try {
+        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+      } catch (refundErr) {
+        console.error('[Extract Scenes] Failed to refund credits:', refundErr.message);
+      }
+    }
+
+    console.error('[Extract Scenes] Error:', error.message);
+    if (error.response) {
+      console.error('[Extract Scenes] API Error Payload:', error.response.data);
+      return res.status(error.response.status || 500).json({
+        success: false,
+        error: error.response.data?.error?.message || 'Failed to extract scenes'
+      });
+    }
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }

@@ -135,6 +135,15 @@ export default function MultiImage() {
       return;
     }
     if (isExtractingRef.current) return;
+    
+    if (emailStatus !== 'verified') {
+      setErrorMessage('请先输入邮箱登录，享受每日免费智能生图额度！');
+      return;
+    }
+    if (credits < 1) {
+      setErrorMessage('额度不足！智能提取分镜需要 1 额度。请点击右上角“充值请联系”扫码充值！');
+      return;
+    }
 
     isExtractingRef.current = true;
     setIsExtracting(true);
@@ -145,7 +154,8 @@ export default function MultiImage() {
       const payload = { 
         text: copyText,
         unifiedStyle: activeTab === 'text' ? unifiedStyle : null,
-        sceneCount
+        sceneCount,
+        email
       };
       
       if (activeTab === 'image' && baseImagePreview) {
@@ -173,6 +183,12 @@ export default function MultiImage() {
     if (scenes.length === 0) return;
     if (isGeneratingRef.current) return;
     
+    const totalCreditsNeeded = scenes.length * 5;
+    if (credits < totalCreditsNeeded) {
+      setErrorMessage(`额度不足！批量生成 ${scenes.length} 个分镜需要 ${totalCreditsNeeded} 额度，当前仅剩 ${credits} 额度。请点击右上角“充值请联系”扫码充值！`);
+      return;
+    }
+
     isGeneratingRef.current = true;
     setIsGenerating(true);
     setErrorMessage('');

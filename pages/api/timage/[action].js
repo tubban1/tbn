@@ -123,6 +123,36 @@ export default async function handler(req, res) {
         return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
       }
 
+      await ensureCreditsTables();
+
+      const CREDITS_PER_TEXT = 1;
+      let currentCredits = 0;
+
+      if (email) {
+        const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+        if (userRows && userRows.length > 0) {
+          const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
+          if (updateResult.affectedRows === 0) {
+            return res.status(400).json({ success: false, error: 'Insufficient credits for optimization', credits: userRows[0].credits });
+          }
+          currentCredits = userRows[0].credits - CREDITS_PER_TEXT;
+          
+          req.creditsPreDeducted = true;
+          req.emailForRefund = email;
+          req.creditsAmountToRefund = CREDITS_PER_TEXT;
+        } else {
+          await query('INSERT INTO user_credits (email, credits) VALUES (?, 29)', [email]);
+          await query(
+            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
+            [email, 'gift', 30, 30, 'New user welcome bonus']
+          );
+          currentCredits = 29;
+          req.creditsPreDeducted = true;
+          req.emailForRefund = email;
+          req.creditsAmountToRefund = CREDITS_PER_TEXT;
+        }
+      }
+
       const systemPrompt = `你是一位精通GPT-Image 绘图的顶级旅游行业提示词工程大师。
 你的任务是将用户输入的简单想法，根据具体的旅游物料类别（如海报、行程攻略、风光大片等），改写并生成 3 个不同风格的高清旅游绘图专业提示词。
 
@@ -206,6 +236,17 @@ export default async function handler(req, res) {
         ];
       }
 
+      if (email) {
+        try {
+          await query(
+            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+            [email, 'consume', -CREDITS_PER_TEXT, email, 'Prompt optimization']
+          );
+        } catch (dbErr) {
+          console.error('[TImage Optimize] Failed to save transaction log:', dbErr.message);
+        }
+      }
+
       return res.json({
         success: true,
         optimizedPrompts
@@ -227,19 +268,31 @@ export default async function handler(req, res) {
       if (email) {
         const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
         if (userRows && userRows.length > 0) {
-          currentCredits = userRows[0].credits;
-          if (currentCredits < CREDITS_PER_IMAGE) {
-            return res.status(400).json({ success: false, error: 'Insufficient credits', credits: currentCredits });
+          // Pre-deduct atomically
+          const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_IMAGE, email, CREDITS_PER_IMAGE]);
+          if (updateResult.affectedRows === 0) {
+            return res.status(400).json({ success: false, error: 'Insufficient credits', credits: userRows[0].credits });
           }
+          currentCredits = userRows[0].credits - CREDITS_PER_IMAGE;
+          
+          // Mark for refund in case of error
+          req.creditsPreDeducted = true;
+          req.emailForRefund = email;
+          req.creditsAmountToRefund = CREDITS_PER_IMAGE;
         } else {
-          // New user: grant 30 free credits
+          // New user: grant 30 free credits, pre-deduct 5 = 25
           console.log(`[TImage] Creating user with 30 free credits for ${email}`);
-          await query('INSERT INTO user_credits (email, credits) VALUES (?, 30)', [email]);
+          await query('INSERT INTO user_credits (email, credits) VALUES (?, 25)', [email]);
           await query(
             'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
             [email, 'gift', 30, 30, 'New user welcome bonus']
           );
-          currentCredits = 30;
+          currentCredits = 25;
+
+          // Mark for refund in case of error
+          req.creditsPreDeducted = true;
+          req.emailForRefund = email;
+          req.creditsAmountToRefund = CREDITS_PER_IMAGE;
         }
       }
 
@@ -346,13 +399,11 @@ export default async function handler(req, res) {
       let drawImageId = null;
       if (email) {
         try {
-          finalCredits = currentCredits - CREDITS_PER_IMAGE;
-          await query('UPDATE user_credits SET credits = ? WHERE email = ?', [finalCredits, email]);
           await query(
-            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
-            [email, 'consume', -CREDITS_PER_IMAGE, finalCredits, 'Image generation']
+            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+            [email, 'consume', -CREDITS_PER_IMAGE, email, 'Image generation']
           );
-          console.log(`[TImage] Deducted 5 credits for image generation. Remaining: ${finalCredits}`);
+          console.log(`[TImage] Transaction logged for 5 credits generation. Remaining roughly: ${finalCredits}`);
 
           console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
           const actualPromptEn = prompt_en || prompt;
@@ -415,6 +466,15 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, error: 'Action Not Found' });
     }
   } catch (error) {
+    if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
+      console.log(`[TImage API] Refunding ${req.creditsAmountToRefund} credits to ${req.emailForRefund} due to error`);
+      try {
+        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+      } catch (refundErr) {
+        console.error('[TImage API] Failed to refund credits:', refundErr.message);
+      }
+    }
+
     console.error(`[TImage API] Error handling ${action}:`, error.message);
     if (error.response) {
       console.error('[TImage API] API error payload:', error.response.data);

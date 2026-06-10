@@ -317,6 +317,15 @@ export default function TImage() {
   const handleOptimizePrompt = async () => {
     if (!simpleIdea.trim()) return;
     if (isOptimizingRef.current) return;
+    
+    if (emailStatus !== 'verified') {
+      setErrorMessage('请先输入邮箱登录，享受每日免费智能生图额度！');
+      return;
+    }
+    if (credits < 1) {
+      setErrorMessage('额度不足！智能优化需要 1 额度。请点击右上角“充值请联系”扫码充值！');
+      return;
+    }
 
     isOptimizingRef.current = true;
     setIsOptimizing(true);
@@ -327,7 +336,8 @@ export default function TImage() {
       const categoryName = selectedType ? selectedType.name : '旅游攻略图';
       const response = await axios.post('/api/timage/optimize-prompt', {
         userPrompt: simpleIdea,
-        categoryName
+        categoryName,
+        email
       });
 
       if (response.data && response.data.success) {
