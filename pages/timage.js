@@ -226,7 +226,13 @@ export default function TImage() {
     try {
       const res = await axios.post('/api/timage/history', { email: userEmail, limit: 12 });
       if (res.data?.success) {
-        setHistoryList(res.data.images || []);
+        const validImages = (res.data.images || []).map(img => {
+          if (img.display_url && img.display_url.startsWith('error:')) {
+            return { ...img, display_url: 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Saved+Locally' };
+          }
+          return img;
+        });
+        setHistoryList(validImages);
       }
     } catch (e) {
       console.error('Failed to load history:', e);

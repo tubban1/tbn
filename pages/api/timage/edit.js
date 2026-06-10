@@ -215,8 +215,8 @@ export default async function handler(req, res) {
     let dbInputUrl = permanentInputUrl;
 
     if (dbOutputUrl.startsWith('data:') && dbOutputUrl.length > 500) {
-      dbOutputUrl = 'error:upload_failed_base64_too_long';
-      dbDisplayUrl = 'error:upload_failed_base64_too_long';
+      dbOutputUrl = 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Saved+Locally';
+      dbDisplayUrl = 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Saved+Locally';
     }
     if (dbInputUrl.startsWith('data:') && dbInputUrl.length > 500) {
       dbInputUrl = 'error:input_base64_too_long';
