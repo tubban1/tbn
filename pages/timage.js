@@ -933,12 +933,22 @@ export default function TImage() {
                 disabled={isProcessing}
                 className={`btn-action-generate ${isProcessing ? 'loading' : ''}`}
               >
-                {isProcessing
-                  ? '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...'
-                  : selectedOptimizedIndexes.length > 1
-                    ? `🚀 开启并行渲染：一次性生成已选的 ${selectedOptimizedIndexes.length} 张图 (总计消耗 ${selectedOptimizedIndexes.length * 5} 额度)`
-                    : '🚀 调遣 AI 绘画引擎，开始高保真渲染 (消耗 5 额度)'
-                }
+                {(() => {
+                  if (isProcessing) return '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...';
+                  let creditsPerImage = 5;
+                  if (size) {
+                    const [w, h] = size.split('x').map(Number);
+                    if (w && h) {
+                      const pixels = w * h;
+                      if (pixels >= 16000000) creditsPerImage = 20;
+                      else if (pixels >= 3000000) creditsPerImage = 10;
+                    }
+                  }
+                  if (selectedOptimizedIndexes.length > 1) {
+                    return `🚀 开启并行渲染：一次性生成已选的 ${selectedOptimizedIndexes.length} 张图 (总计消耗 ${selectedOptimizedIndexes.length * creditsPerImage} 额度)`;
+                  }
+                  return `🚀 调遣 AI 绘画引擎，开始高保真渲染 (消耗 ${creditsPerImage} 额度)`;
+                })()}
               </button>
             </div>
 

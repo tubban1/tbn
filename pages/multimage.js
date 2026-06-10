@@ -545,7 +545,19 @@ export default function MultiImage() {
             </div>
             
             <button onClick={handleGenerateAll} disabled={isGenerating} className="btn-generate">
-              {isGenerating ? '🌌 正在并行渲染所有分镜...' : `🚀 第二步：一键生成所有 ${scenes.length} 张大图`}
+              {(() => {
+                if (isGenerating) return '🌌 正在并行渲染所有分镜...';
+                let creditsPerImage = 5;
+                if (unifiedSize) {
+                  const [w, h] = unifiedSize.split('x').map(Number);
+                  if (w && h) {
+                    const pixels = w * h;
+                    if (pixels >= 16000000) creditsPerImage = 20;
+                    else if (pixels >= 3000000) creditsPerImage = 10;
+                  }
+                }
+                return `🚀 第二步：一键生成所有 ${scenes.length} 张大图 (消耗 ${scenes.length * creditsPerImage} 额度)`;
+              })()}
             </button>
           </div>
         )}
