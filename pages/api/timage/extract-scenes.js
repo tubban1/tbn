@@ -3,16 +3,24 @@ import https from 'https';
 import { query } from '../../../lib/db';
 import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '20mb',
+    },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { text, unifiedStyle, sceneCount = 6, image, email } = req.body;
+  const { text, unifiedStyle, sceneCount = 6, image, email, documentBase64, documentMimeType } = req.body;
   const targetSceneCount = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
 
-  if (!text || typeof text !== 'string') {
-    return res.status(400).json({ success: false, error: 'Text content is required' });
+  if ((!text || typeof text !== 'string') && !documentBase64) {
+    return res.status(400).json({ success: false, error: 'Text content or document is required' });
   }
 
   try {
@@ -72,17 +80,30 @@ Format:
   }
 ]`;
 
-    const userMessageContent = image
-      ? [
-        { type: 'text', text: `Please analyze the following text and the provided base image, then extract scenes:\n\n${text}` },
-        { type: 'image_url', image_url: { url: image } }
-      ]
-      : `Please analyze the following text and extract scenes:\n\n${text}`;
+    const userMessageContent = [];
+    let instructions = 'Please analyze the following text and extract scenes:\n\n';
+    if (image) {
+      instructions = 'Please analyze the following text and the provided base image, then extract scenes:\n\n';
+      userMessageContent.push({ type: 'image_url', image_url: { url: image } });
+    }
+    if (documentBase64) {
+      instructions = 'Please analyze the attached document ' + (text ? 'and the following text ' : '') + 'then extract scenes:\n\n';
+      userMessageContent.push({
+        type: 'image_url', // Most OpenAI adapters for Gemini map image_url with PDF mime to inline_data
+        image_url: { url: `data:${documentMimeType || 'application/pdf'};base64,${documentBase64}` }
+      });
+    }
+    if (text) {
+      userMessageContent.push({ type: 'text', text: instructions + text });
+    } else {
+      userMessageContent.push({ type: 'text', text: instructions });
+    }
 
     console.log(`[Extract Scenes] Sending request to VectorEngine:`, {
       model: promptModel,
-      textLength: text.length,
-      hasImage: !!image
+      textLength: text ? text.length : 0,
+      hasImage: !!image,
+      hasDocument: !!documentBase64
     });
 
     const response = await axios.post(

@@ -28,6 +28,9 @@ export default function MultiImage() {
   const [scenes, setScenes] = useState([]);
   
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  const [documentData, setDocumentData] = useState(null);
+
   const [results, setResults] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
@@ -136,8 +139,8 @@ export default function MultiImage() {
   const isExtractingRef = useRef(false);
 
   const handleExtractScenes = async () => {
-    if (!copyText.trim()) {
-      setErrorMessage('请输入长文案或文档内容！');
+    if (!copyText.trim() && !documentData) {
+      setErrorMessage('请输入长文案或导入文档内容！');
       return;
     }
     if (isExtractingRef.current) return;
@@ -163,6 +166,11 @@ export default function MultiImage() {
         sceneCount,
         email
       };
+      
+      if (documentData) {
+        payload.documentBase64 = documentData.base64;
+        payload.documentMimeType = documentData.mimeType;
+      }
       
       if (activeTab === 'image' && baseImagePreview) {
         payload.image = baseImagePreview;
@@ -438,36 +446,40 @@ export default function MultiImage() {
                 onChange={async (e) => {
                   const file = e.target.files[0];
                   if (!file) return;
-                  setIsExtracting(true);
-                  setInfoMessage('正在解析文档内容，请稍候...');
-                  setErrorMessage('');
-                  const formData = new FormData();
-                  formData.append('file', file);
-                  try {
-                    const res = await axios.post('/api/timage/parse-doc', formData);
-                    if (res.data?.success) {
-                      setCopyText(res.data.text);
-                      setInfoMessage(`成功解析文档内容！已导入 ${res.data.text.length} 个字符。`);
-                    } else {
-                      setErrorMessage('解析文档失败：' + (res.data?.error || '未知错误'));
-                      setInfoMessage('');
-                    }
-                  } catch (err) {
-                    setErrorMessage('解析文档发生网络错误！');
-                    setInfoMessage('');
-                  } finally {
-                    setIsExtracting(false);
-                    e.target.value = ''; // Reset input
+                  
+                  if (file.size > 10 * 1024 * 1024) {
+                    setErrorMessage('文档不能超过10MB！');
+                    return;
                   }
+                  
+                  setInfoMessage('正在读取文档...');
+                  setErrorMessage('');
+                  
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const base64Data = event.target.result.split(',')[1];
+                    // Store it directly into the state
+                    setDocumentData({
+                      name: file.name,
+                      base64: base64Data,
+                      mimeType: file.type || 'application/pdf'
+                    });
+                    setInfoMessage(`文档 ${file.name} 已加载！您可以继续填写需求，或直接点击提取分镜。AI 会直接阅读文档。`);
+                    e.target.value = ''; // Reset input
+                  };
+                  reader.onerror = () => {
+                    setErrorMessage('读取文档失败！');
+                  };
+                  reader.readAsDataURL(file);
                 }}
               />
               <button 
                 onClick={() => document.getElementById('doc-upload').click()}
                 disabled={isExtracting}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#e2e8f0',
+                  background: documentData ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                  border: documentData ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.2)',
+                  color: documentData ? '#34d399' : '#e2e8f0',
                   padding: '6px 12px',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -477,11 +489,23 @@ export default function MultiImage() {
                   gap: '6px',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.15)'}
-                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+                onMouseEnter={(e) => {
+                  if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                }}
               >
-                📄 导入 PDF/DOCX
+                📄 {documentData ? `已加载: ${documentData.name.length > 10 ? documentData.name.substring(0, 10) + '...' : documentData.name}` : '上传 PDF/DOCX 直接分析'}
               </button>
+              {documentData && (
+                <button 
+                  onClick={() => { setDocumentData(null); setInfoMessage('文档已移除。'); }}
+                  style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', marginLeft: '5px' }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
           <p className="hint">AI会自动阅读长文并提取分镜画面</p>
