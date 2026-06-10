@@ -427,12 +427,68 @@ export default function MultiImage() {
         </div>
 
         <div className="card">
-          <h3>1. 输入长文案 / 故事文档</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <h3 style={{ margin: 0 }}>1. 输入长文案 / 故事文档</h3>
+            <div className="doc-upload-wrapper">
+              <input 
+                type="file" 
+                id="doc-upload" 
+                accept=".pdf,.docx,.txt" 
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  setIsExtracting(true);
+                  setInfoMessage('正在解析文档内容，请稍候...');
+                  setErrorMessage('');
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  try {
+                    const res = await axios.post('/api/timage/parse-doc', formData);
+                    if (res.data?.success) {
+                      setCopyText(res.data.text);
+                      setInfoMessage(`成功解析文档内容！已导入 ${res.data.text.length} 个字符。`);
+                    } else {
+                      setErrorMessage('解析文档失败：' + (res.data?.error || '未知错误'));
+                      setInfoMessage('');
+                    }
+                  } catch (err) {
+                    setErrorMessage('解析文档发生网络错误！');
+                    setInfoMessage('');
+                  } finally {
+                    setIsExtracting(false);
+                    e.target.value = ''; // Reset input
+                  }
+                }}
+              />
+              <button 
+                onClick={() => document.getElementById('doc-upload').click()}
+                disabled={isExtracting}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#e2e8f0',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.15)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+              >
+                📄 导入 PDF/DOCX
+              </button>
+            </div>
+          </div>
           <p className="hint">AI会自动阅读长文并提取分镜画面</p>
             <textarea 
             value={copyText} 
             onChange={e => setCopyText(e.target.value)}
-            placeholder="粘贴您的公众号推文、小说故事或多图需求描述..."
+            placeholder="粘贴您的公众号推文、小说故事或多图需求描述... 您也可以点击右上方按钮导入 PDF/DOCX/TXT 文档。"
             rows={6}
             className="input-textarea"
           />
