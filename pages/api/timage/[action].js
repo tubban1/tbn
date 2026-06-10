@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     }
 
     else if (action === 'optimize-prompt') {
-      const { userPrompt, categoryName } = req.body;
+      const { userPrompt, categoryName, email } = req.body;
       if (!userPrompt) {
         return res.status(400).json({ success: false, error: 'userPrompt is required' });
       }
