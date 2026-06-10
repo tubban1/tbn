@@ -488,9 +488,13 @@ export default function TImage() {
           setGeneratedUrl(firstValid.generatedUrl);
 
           // Re-fetch remaining credits
-          const lastRes = await axios.post('/api/timage/pre-check', { email });
-          if (lastRes.data?.success) {
-            setCredits(lastRes.data.credits);
+          try {
+            const lastRes = await axios.post('/api/timage/pre-check', { email, password });
+            if (lastRes.data?.success) {
+              setCredits(lastRes.data.credits);
+            }
+          } catch (err) {
+            console.error('Failed to update credits:', err);
           }
 
           setInfoMessage(`🎉 成功批量生成并交付了 ${validResults.length} 张高清旅游大图！`);

@@ -247,8 +247,14 @@ export default function MultiImage() {
     isGeneratingRef.current = false;
     setInfoMessage('✅ 批量生成完毕！');
     if (email) {
-      const lastRes = await axios.post('/api/timage/pre-check', { email });
-      if (lastRes.data?.success) setCredits(lastRes.data.credits);
+      try {
+        const lastRes = await axios.post('/api/timage/pre-check', { email, password });
+        if (lastRes.data?.success) {
+          setCredits(lastRes.data.credits);
+        }
+      } catch (err) {
+        console.error('Failed to update credits:', err);
+      }
       loadHistory(email);
     }
   };
