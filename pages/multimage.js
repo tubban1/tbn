@@ -450,7 +450,7 @@ export default function MultiImage() {
         const formData = new FormData();
         formData.append('prompt', scene.prompt);
         if (email) formData.append('email', email);
-        formData.append('size', '1024x1024'); // default
+        formData.append('size', unifiedSize);
         formData.append('image', baseImage);
         
         const res = await axios.post('/api/timage/edit', formData);
@@ -462,7 +462,7 @@ export default function MultiImage() {
       } else {
         const res = await axios.post('/api/timage/generate', {
           prompt: scene.prompt,
-          size: '1024x1024',
+          size: unifiedSize,
           email
         });
         if (res.data?.success) {
