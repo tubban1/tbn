@@ -53,7 +53,7 @@ export default function MultiImage() {
     setEditingPromptIdx(null);
   };
 
-  const EMAIL_REGEX = /^[^s@]+@[^s@]+\.[^s@]+$/;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailStatus, setEmailStatus] = useState('none');
@@ -133,6 +133,149 @@ export default function MultiImage() {
     } finally {
       setIsLoadingHistory(false);
     }
+  };
+
+  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const readFileAsText = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+
+  const compressBaseImage = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1536;
+        
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
+        
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('图片压缩失败'));
+            return;
+          }
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          const previewUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve({ file: compressedFile, previewUrl });
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('图片读取失败'));
+      img.src = event.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleDocumentFile = async (file) => {
+    if (!file) return false;
+
+    if (file.type === 'text/plain' || /\.txt$/i.test(file.name)) {
+      const text = await readFileAsText(file);
+      setCopyText(prev => `${prev ? `${prev}\n\n` : ''}${text}`);
+      setInfoMessage(`已将 ${file.name} 的文本内容追加到文案输入框。`);
+      return true;
+    }
+
+    if (!/\.(pdf|docx)$/i.test(file.name) && !['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
+      return false;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('文档不能超过10MB！');
+      return true;
+    }
+
+    const dataUrl = await readFileAsDataUrl(file);
+    const base64Data = dataUrl.split(',')[1];
+    setDocumentData({
+      name: file.name,
+      base64: base64Data,
+      mimeType: file.type || (file.name.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf')
+    });
+    setInfoMessage(`文档 ${file.name} 已加载！您可以继续填写需求，或直接点击提取分镜。AI 会直接阅读文档。`);
+    return true;
+  };
+
+  const handleBaseImageFile = async (file) => {
+    if (!file?.type?.startsWith('image/')) return false;
+    const imageData = await compressBaseImage(file);
+    setBaseImage(imageData.file);
+    setBaseImagePreview(imageData.previewUrl);
+    setActiveTab('image');
+    setInfoMessage(file.size > 10 * 1024 * 1024 ? '图片已自动压缩并设为基础参考图。' : '图片已设为基础参考图。');
+    return true;
+  };
+
+  const handleIncomingFiles = async (incomingFiles) => {
+    const files = Array.from(incomingFiles || []);
+    if (!files.length) return;
+
+    let handledCount = 0;
+    let skippedCount = 0;
+    setErrorMessage('');
+
+    for (const file of files) {
+      try {
+        if (file.type.startsWith('image/')) {
+          const handled = await handleBaseImageFile(file);
+          handledCount += handled ? 1 : 0;
+        } else {
+          const handled = await handleDocumentFile(file);
+          if (handled) handledCount++;
+          else skippedCount++;
+        }
+      } catch (err) {
+        skippedCount++;
+      }
+    }
+
+    if (handledCount > 0) {
+      setInfoMessage(`已导入 ${handledCount} 个文件。`);
+    }
+    if (skippedCount > 0) {
+      setErrorMessage(`有 ${skippedCount} 个文件未导入。支持图片、PDF、DOCX 和 TXT。`);
+    }
+  };
+
+  const handleInputDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await handleIncomingFiles(e.dataTransfer.files);
+  };
+
+  const handleInputPaste = async (e) => {
+    const files = Array.from(e.clipboardData?.files || []);
+    if (!files.length) return;
+    e.preventDefault();
+    await handleIncomingFiles(files);
   };
 
   // Parse long text into scenes
@@ -333,56 +476,9 @@ export default function MultiImage() {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 1536;
-          
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
-          
-          canvas.toBlob((blob) => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            const previewUrl = canvas.toDataURL('image/jpeg', quality);
-            setBaseImage(compressedFile);
-            setBaseImagePreview(previewUrl);
-          }, 'image/jpeg', quality);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      if (file.size > 4.5 * 1024 * 1024) {
-        setErrorMessage('非图片文件大小不能超过 4.5MB！');
-        return;
-      }
-      setBaseImage(file);
-      setBaseImagePreview(URL.createObjectURL(file));
-    }
+  const handleFileChange = async (e) => {
+    await handleIncomingFiles(e.target.files);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeImage = () => {
@@ -446,31 +542,8 @@ export default function MultiImage() {
                 onChange={async (e) => {
                   const file = e.target.files[0];
                   if (!file) return;
-                  
-                  if (file.size > 10 * 1024 * 1024) {
-                    setErrorMessage('文档不能超过10MB！');
-                    return;
-                  }
-                  
-                  setInfoMessage('正在读取文档...');
-                  setErrorMessage('');
-                  
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    const base64Data = event.target.result.split(',')[1];
-                    // Store it directly into the state
-                    setDocumentData({
-                      name: file.name,
-                      base64: base64Data,
-                      mimeType: file.type || 'application/pdf'
-                    });
-                    setInfoMessage(`文档 ${file.name} 已加载！您可以继续填写需求，或直接点击提取分镜。AI 会直接阅读文档。`);
-                    e.target.value = ''; // Reset input
-                  };
-                  reader.onerror = () => {
-                    setErrorMessage('读取文档失败！');
-                  };
-                  reader.readAsDataURL(file);
+                  await handleDocumentFile(file);
+                  e.target.value = '';
                 }}
               />
               <button 
@@ -512,7 +585,10 @@ export default function MultiImage() {
             <textarea 
             value={copyText} 
             onChange={e => setCopyText(e.target.value)}
-            placeholder="粘贴您的公众号推文、小说故事或多图需求描述... 您也可以点击右上方按钮导入 PDF/DOCX/TXT 文档。"
+            onPaste={handleInputPaste}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleInputDrop}
+            placeholder="粘贴您的公众号推文、小说故事或多图需求描述... 也可以直接拖入/粘贴 PDF、DOCX、TXT 或图片。"
             rows={6}
             className="input-textarea"
           />
@@ -566,13 +642,19 @@ export default function MultiImage() {
           )}
 
           {activeTab === 'image' && (
-            <div className="upload-section">
+            <div
+              className="upload-section"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleInputDrop}
+              onPaste={handleInputPaste}
+              tabIndex={0}
+            >
               <h3>2. 上传基础参考图</h3>
-              <p className="hint">请上传一张底图。AI 将基于这张同一图片，结合上述分镜文案，为您生成多张局部被修改/重绘的不同画面！</p>
+              <p className="hint">请上传、拖入或粘贴一张底图。AI 将基于这张同一图片，结合上述分镜文案，为您生成多张局部被修改/重绘的不同画面！</p>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept="image/*" />
               
               {!baseImagePreview ? (
-                <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传单张底图</button>
+                <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传 / 拖入 / 粘贴单张底图</button>
               ) : (
                 <div className="preview-container">
                   <img src={baseImagePreview} alt="Base" onClick={() => setEditingImageIdx(true)} className="preview-img" />

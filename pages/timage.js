@@ -241,76 +241,138 @@ export default function TImage() {
     }
   };
 
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files);
+  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const readFileAsText = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+
+  const compressImageFile = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        const maxDim = 1536;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
+        
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('图片压缩失败'));
+            return;
+          }
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          const previewUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve({ file: compressedFile, preview: previewUrl });
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('图片读取失败'));
+      img.src = event.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleIncomingFiles = async (incomingFiles) => {
+    const files = Array.from(incomingFiles || []);
     if (!files.length) return;
-    
-    if (uploadedImages.length + files.length > 6) {
-      setErrorMessage('最多只能上传 6 张图片！');
-      return;
-    }
 
     const newImages = [];
+    let appendedTextCount = 0;
+    let skippedCount = 0;
+    const currentImageCount = uploadedImages.filter(item => item.file?.type?.startsWith('image/')).length;
+    let nextImageCount = currentImageCount;
     
     for (const file of files) {
       if (file.type.startsWith('image/')) {
-        await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-              
-              const maxDim = 1536;
-              if (width > height && width > maxDim) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              } else if (height > maxDim) {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
-              
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
-              
-              canvas.toBlob((blob) => {
-                const compressedFile = new File([blob], file.name, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                });
-                const previewUrl = canvas.toDataURL('image/jpeg', quality);
-                newImages.push({ file: compressedFile, preview: previewUrl });
-                resolve();
-              }, 'image/jpeg', quality);
-            };
-            img.src = event.target.result;
-          };
-          reader.readAsDataURL(file);
-        });
+        if (nextImageCount >= 6) {
+          skippedCount++;
+          continue;
+        }
+        try {
+          const imageData = await compressImageFile(file);
+          newImages.push(imageData);
+          nextImageCount++;
+        } catch (err) {
+          skippedCount++;
+        }
+      } else if (file.type === 'text/plain' || /\.txt$/i.test(file.name)) {
+        try {
+          const text = await readFileAsText(file);
+          setPrompt(prev => `${prev ? `${prev}\n\n` : ''}${text}`);
+          appendedTextCount++;
+        } catch (err) {
+          skippedCount++;
+        }
       } else {
         if (file.size > 4.5 * 1024 * 1024) {
           setErrorMessage('由于云服务限制，非图片类文档大小请控制在 4MB 以内！');
+          skippedCount++;
           continue;
         }
-        await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            newImages.push({ file, preview: reader.result });
-            resolve();
-          };
-          reader.readAsDataURL(file);
-        });
+        try {
+          const preview = await readFileAsDataUrl(file);
+          newImages.push({ file, preview });
+        } catch (err) {
+          skippedCount++;
+        }
       }
     }
     
-    setUploadedImages(prev => [...prev, ...newImages]);
+    if (newImages.length > 0) {
+      setUploadedImages(prev => [...prev, ...newImages]);
+    }
+    if (newImages.length > 0 || appendedTextCount > 0) {
+      setInfoMessage(`已导入 ${newImages.length} 个参考文件${appendedTextCount ? `，并追加 ${appendedTextCount} 个文本文件内容` : ''}。`);
+    }
+    if (skippedCount > 0) {
+      setErrorMessage(`有 ${skippedCount} 个文件未导入。图片最多支持 6 张，文档请控制在 4MB 以内。`);
+    }
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileChange = async (e) => {
+    await handleIncomingFiles(e.target.files);
+  };
+
+  const handlePromptDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await handleIncomingFiles(e.dataTransfer.files);
+  };
+
+  const handlePromptPaste = async (e) => {
+    const files = Array.from(e.clipboardData?.files || []);
+    if (!files.length) return;
+    e.preventDefault();
+    await handleIncomingFiles(files);
   };
 
   const removeImage = (indexToRemove) => {
@@ -433,7 +495,7 @@ export default function TImage() {
           
           try {
             let res;
-            if (uploadedImages.length === 0) {
+            if (!uploadedImages.some(img => img.file?.type?.startsWith('image/'))) {
               res = await axios.post('/api/timage/generate', {
                 prompt: p,
                 prompt_en: opt.prompt,
@@ -450,7 +512,7 @@ export default function TImage() {
               formData.append('prompt_zh', opt.promptZh);
               formData.append('size', size);
               formData.append('email', email);
-              uploadedImages.forEach(img => {
+              uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
                 formData.append('image', img.file);
               });
               res = await axios.post('/api/timage/edit', formData);
@@ -518,7 +580,7 @@ export default function TImage() {
         }
       } else {
         // SINGLE GENERATION FLOW
-        if (uploadedImages.length === 0) {
+        if (!uploadedImages.some(img => img.file?.type?.startsWith('image/'))) {
           setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/generate', {
             prompt,
@@ -547,7 +609,7 @@ export default function TImage() {
           formData.append('prompt', prompt);
           formData.append('size', size);
           formData.append('email', email);
-          uploadedImages.forEach(img => {
+          uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
             formData.append('image', img.file);
           });
 
@@ -730,6 +792,9 @@ export default function TImage() {
                     type="text"
                     value={simpleIdea}
                     onChange={(e) => setSimpleIdea(e.target.value)}
+                    onPaste={handlePromptPaste}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handlePromptDrop}
                     placeholder="输入您的简单构想，如：'绝美海滩日落、浪漫旅拍情侣'..."
                     className="optimizer-input-field"
                     onKeyDown={(e) => {
@@ -830,7 +895,12 @@ export default function TImage() {
               </div>
 
               {/* Custom Prompt Box (Unified Upload + Text Input) */}
-              <div className="prompt-area" style={{ position: 'relative' }}>
+              <div
+                className="prompt-area"
+                style={{ position: 'relative' }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handlePromptDrop}
+              >
                 <label>📝 绘画引擎指令 Prompts (您可以手动输入，或点击 📎 附上参考图/文档)</label>
 
                 {/* Unified Uploads Preview Zone */}
@@ -839,8 +909,10 @@ export default function TImage() {
                     {uploadedImages.map((img, idx) => (
                       <div 
                         key={idx}
-                        onClick={() => setEditingImageIdx(idx)}
-                        style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                        onClick={() => {
+                          if (img.file?.type?.startsWith('image/')) setEditingImageIdx(idx);
+                        }}
+                        style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.3)', cursor: img.file?.type?.startsWith('image/') ? 'pointer' : 'default', transition: 'transform 0.2s' }}
                         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                         title="点击展开编辑/标记"
@@ -860,14 +932,14 @@ export default function TImage() {
 
                 <div style={{ position: 'relative', width: '100%' }}>
                   {/* Hidden File Inputs */}
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" multiple />
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" multiple />
 
                   {/* Attachment Paperclip Button */}
                   <button 
                     type="button"
                     onClick={() => {
-                      if (uploadedImages.length < 6) fileInputRef.current.click();
-                      else alert('最多只能上传 6 个参考文件！');
+                      if (uploadedImages.filter(item => item.file?.type?.startsWith('image/')).length < 6) fileInputRef.current.click();
+                      else alert('最多只能上传 6 张参考图片！');
                     }}
                     style={{
                       position: 'absolute',
@@ -892,8 +964,9 @@ export default function TImage() {
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
+                    onPaste={handlePromptPaste}
                     className="prompt-textarea"
-                    placeholder="在此粘贴或修改绘画指令..."
+                    placeholder="在此粘贴或修改绘画指令，也可以直接拖入/粘贴图片或文档..."
                     rows={4}
                     style={{ paddingLeft: '44px' }}
                   />
