@@ -4,14 +4,8 @@ import axios from 'axios';
 import dynamic from 'next/dynamic';
 import Header from '../components/Header';
 import HistoryGallery from '../components/HistoryGallery';
-
-const SingularityLoader = dynamic(() => import('../components/SingularityLoader'), {
-  ssr: false
-});
-
-const ImageMarkupModal = dynamic(() => import('../components/ImageMarkupModal'), {
-  ssr: false
-});
+import SingularityLoader from '../components/SingularityLoader';
+import ImageMarkupModal from '../components/ImageMarkupModal';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
