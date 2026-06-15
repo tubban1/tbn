@@ -257,7 +257,7 @@ export default function TImage() {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        
+
         const maxDim = 1536;
         if (width > height && width > maxDim) {
           height = Math.round((height * maxDim) / width);
@@ -266,14 +266,14 @@ export default function TImage() {
           width = Math.round((width * maxDim) / height);
           height = maxDim;
         }
-        
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
-        
+
         canvas.toBlob((blob) => {
           if (!blob) {
             reject(new Error('图片压缩失败'));
@@ -303,7 +303,7 @@ export default function TImage() {
     let skippedCount = 0;
     const currentImageCount = uploadedImages.filter(item => item.file?.type?.startsWith('image/')).length;
     let nextImageCount = currentImageCount;
-    
+
     for (const file of files) {
       if (file.type.startsWith('image/')) {
         if (nextImageCount >= 6) {
@@ -339,7 +339,7 @@ export default function TImage() {
         }
       }
     }
-    
+
     if (newImages.length > 0) {
       setUploadedImages(prev => [...prev, ...newImages]);
     }
@@ -379,7 +379,7 @@ export default function TImage() {
   const handleOptimizePrompt = async () => {
     if (!simpleIdea.trim()) return;
     if (isOptimizingRef.current) return;
-    
+
     if (emailStatus !== 'verified') {
       setErrorMessage('请先输入邮箱登录，享受每日免费智能生图额度！');
       return;
@@ -428,7 +428,7 @@ export default function TImage() {
 
   const handleGenerate = async () => {
     if (isProcessingRef.current) return;
-    
+
     setErrorMessage('');
     setInfoMessage('');
     setGeneratedUrl(null);
@@ -486,7 +486,7 @@ export default function TImage() {
           const idx = selectedOptimizedIndexes[arrayIndex];
           const opt = optimizedResults[idx];
           const p = opt.promptZh || opt.prompt;
-          
+
           try {
             let res;
             if (!uploadedImages.some(img => img.file?.type?.startsWith('image/'))) {
@@ -511,7 +511,7 @@ export default function TImage() {
               });
               res = await axios.post('/api/timage/edit', formData);
             }
-            
+
             if (res.data?.success) {
               const item = {
                 displayUrl: res.data.freeimageUrl,
@@ -523,7 +523,7 @@ export default function TImage() {
                 updated[arrayIndex] = item;
                 return updated;
               });
-              
+
               if (email) loadHistory(email);
               results.push(item);
             } else {
@@ -544,7 +544,7 @@ export default function TImage() {
             });
             results.push(null);
           }
-          
+
           // Add a 2-second delay between requests to be extra safe against rate limits
           if (arrayIndex < selectedOptimizedIndexes.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -619,7 +619,7 @@ export default function TImage() {
             setGeneratedUrl(out.generatedUrl);
             setDisplayUrl(out.displayUrl);
             setCredits(response.data.credits);
-            
+
             if (email) loadHistory(email);
           }
         }
@@ -646,8 +646,8 @@ export default function TImage() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
-      <Header 
-        title="天工创界" 
+      <Header
+        title="天工创界"
         subtitle="旅游规划与获客 AI 智绘 Agent"
         email={email}
         setEmail={setEmail}
@@ -863,7 +863,7 @@ export default function TImage() {
                             )}
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: '4px' }}>
                               <p className="suggestion-text" style={{ fontSize: '0.7rem', opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>{item.prompt}</p>
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigator.clipboard.writeText(item.prompt);
@@ -901,7 +901,7 @@ export default function TImage() {
                 {uploadedImages.length > 0 && (
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     {uploadedImages.map((img, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         onClick={() => {
                           if (img.file?.type?.startsWith('image/')) setEditingImageIdx(idx);
@@ -926,10 +926,10 @@ export default function TImage() {
 
                 <div style={{ position: 'relative', width: '100%' }}>
                   {/* Hidden File Inputs */}
-                      <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" multiple />
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,application/pdf,.txt,.doc,.docx" multiple />
 
                   {/* Attachment Paperclip Button */}
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       if (uploadedImages.filter(item => item.file?.type?.startsWith('image/')).length < 6) fileInputRef.current.click();
@@ -1040,8 +1040,8 @@ export default function TImage() {
               <div className="result-card">
                 <div className="result-header">
                   <h3>
-                    {isProcessing 
-                      ? '🎨 天工创界 AI 正在并行交付中...' 
+                    {isProcessing
+                      ? '🎨 天工创界 AI 正在并行交付中...'
                       : '🎨 天工创界 AI 智能生成交付物'
                     }
                   </h3>
@@ -1094,7 +1094,7 @@ export default function TImage() {
                           </div>
                         );
                       }
-                      
+
                       if (out === 'error') {
                         return (
                           <div key={`error-${idx}`} className="result-item-box error-state" style={{
@@ -1192,7 +1192,7 @@ export default function TImage() {
         </div>
 
         {/* History Gallery Section */}
-        <HistoryGallery 
+        <HistoryGallery
           email={email}
           emailStatus={emailStatus}
           initialHistoryList={historyList}
@@ -2102,9 +2102,9 @@ export default function TImage() {
           }
         }
       `}</style>
-      
+
       {/* Image Markup Modal */}
-      <ImageMarkupModal 
+      <ImageMarkupModal
         isOpen={editingImageIdx !== null}
         onClose={() => setEditingImageIdx(null)}
         imageUrl={editingImageIdx !== null && uploadedImages[editingImageIdx] ? uploadedImages[editingImageIdx].preview : null}

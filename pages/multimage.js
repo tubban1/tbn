@@ -26,15 +26,15 @@ export default function MultiImage() {
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [scenes, setScenes] = useState([]);
-  
+
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   const [documentData, setDocumentData] = useState(null);
 
   const [results, setResults] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
-  
+
   const [editingImageIdx, setEditingImageIdx] = useState(false);
   const [editingPromptIdx, setEditingPromptIdx] = useState(null);
   const [editingPromptText, setEditingPromptText] = useState('');
@@ -158,7 +158,7 @@ export default function MultiImage() {
         let width = img.width;
         let height = img.height;
         const maxDim = 1536;
-        
+
         if (width > height && width > maxDim) {
           height = Math.round((height * maxDim) / width);
           width = maxDim;
@@ -166,14 +166,14 @@ export default function MultiImage() {
           width = Math.round((width * maxDim) / height);
           height = maxDim;
         }
-        
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         const quality = file.size > 10 * 1024 * 1024 ? 0.7 : 0.85;
-        
+
         canvas.toBlob((blob) => {
           if (!blob) {
             reject(new Error('图片压缩失败'));
@@ -287,7 +287,7 @@ export default function MultiImage() {
       return;
     }
     if (isExtractingRef.current) return;
-    
+
     if (emailStatus !== 'verified') {
       setErrorMessage('请先输入邮箱登录，享受每日免费智能生图额度！');
       return;
@@ -300,21 +300,21 @@ export default function MultiImage() {
     isExtractingRef.current = true;
     setIsExtracting(true);
     setErrorMessage('');
-    
+
     try {
       // We will create a new endpoint /api/timage/extract-scenes
-      const payload = { 
+      const payload = {
         text: copyText,
         unifiedStyle: activeTab === 'text' ? unifiedStyle : null,
         sceneCount,
         email
       };
-      
-      if (documentData) {
+
+      if (activeTab === 'text' && documentData) {
         payload.documentBase64 = documentData.base64;
         payload.documentMimeType = documentData.mimeType;
       }
-      
+
       if (activeTab === 'image' && baseImagePreview) {
         payload.image = baseImagePreview;
       }
@@ -339,7 +339,7 @@ export default function MultiImage() {
   const handleGenerateAll = async () => {
     if (scenes.length === 0) return;
     if (isGeneratingRef.current) return;
-    
+
     let creditsPerImage = 5;
     if (unifiedSize) {
       const [w, h] = unifiedSize.split('x').map(Number);
@@ -360,14 +360,14 @@ export default function MultiImage() {
     setIsGenerating(true);
     setErrorMessage('');
     setInfoMessage('');
-    
+
     // Initialize results with placeholders
     setResults(new Array(scenes.length).fill(null));
-    
+
     // Add a short delay to allow React to render the UI and fetch dynamic chunks 
     // before the browser's HTTP connection pool gets clogged by 6 heavy concurrent API requests.
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const promises = scenes.map(async (scene, idx) => {
       try {
         if (activeTab === 'image') {
@@ -383,7 +383,7 @@ export default function MultiImage() {
           if (email) formData.append('email', email);
           formData.append('size', unifiedSize);
           formData.append('image', baseImage);
-          
+
           const res = await axios.post('/api/timage/edit', formData);
           if (res.data?.success) {
             updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
@@ -452,7 +452,7 @@ export default function MultiImage() {
         if (email) formData.append('email', email);
         formData.append('size', unifiedSize);
         formData.append('image', baseImage);
-        
+
         const res = await axios.post('/api/timage/edit', formData);
         if (res.data?.success) {
           updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
@@ -498,9 +498,9 @@ export default function MultiImage() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
-      
-      <Header 
-        title="天工创界 | 多幕叙事" 
+
+      <Header
+        title="天工创界 | 多幕叙事"
         subtitle="AI 连续故事画板生成"
         email={email}
         setEmail={setEmail}
@@ -534,10 +534,10 @@ export default function MultiImage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <h3 style={{ margin: 0 }}>1. 输入长文案 / 故事文档</h3>
             <div className="doc-upload-wrapper">
-              <input 
-                type="file" 
-                id="doc-upload" 
-                accept=".pdf,.docx,.txt" 
+              <input
+                type="file"
+                id="doc-upload"
+                accept=".pdf,.docx,.txt"
                 style={{ display: 'none' }}
                 onChange={async (e) => {
                   const file = e.target.files[0];
@@ -546,7 +546,7 @@ export default function MultiImage() {
                   e.target.value = '';
                 }}
               />
-              <button 
+              <button
                 onClick={() => document.getElementById('doc-upload').click()}
                 disabled={isExtracting}
                 style={{
@@ -572,7 +572,7 @@ export default function MultiImage() {
                 📄 {documentData ? `已加载: ${documentData.name.length > 10 ? documentData.name.substring(0, 10) + '...' : documentData.name}` : '上传 PDF/DOCX 直接分析'}
               </button>
               {documentData && (
-                <button 
+                <button
                   onClick={() => { setDocumentData(null); setInfoMessage('文档已移除。'); }}
                   style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', marginLeft: '5px' }}
                 >
@@ -582,8 +582,8 @@ export default function MultiImage() {
             </div>
           </div>
           <p className="hint">AI会自动阅读长文并提取分镜画面</p>
-            <textarea 
-            value={copyText} 
+          <textarea
+            value={copyText}
             onChange={e => setCopyText(e.target.value)}
             onPaste={handleInputPaste}
             onDragOver={(e) => e.preventDefault()}
@@ -594,10 +594,10 @@ export default function MultiImage() {
           />
           <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center' }}>
             <label style={{ color: '#cbd5e1', fontSize: '0.9rem', marginRight: '1rem' }}>生成分镜数量 (2-20张)：</label>
-            <input 
-              type="number" 
-              min="2" max="20" 
-              value={sceneCount} 
+            <input
+              type="number"
+              min="2" max="20"
+              value={sceneCount}
               onChange={e => setSceneCount(e.target.value ? Math.min(20, Math.max(2, parseInt(e.target.value) || 2)) : '')}
               onBlur={() => {
                 if (!sceneCount || sceneCount < 2) setSceneCount(2);
@@ -608,12 +608,12 @@ export default function MultiImage() {
               }}
             />
           </div>
-          
+
           {activeTab === 'text' && (
             <div className="upload-section">
               <h3>2. 全局参数设置</h3>
               <p className="hint">我们将强制要求AI在生成的所有分镜中保持一致的风格与尺寸，确保输出具备连贯性。</p>
-              
+
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>🎨 选择统一风格：</label>
                 <select value={unifiedStyle} onChange={(e) => setUnifiedStyle(e.target.value)} className="style-select">
@@ -651,8 +651,8 @@ export default function MultiImage() {
             >
               <h3>2. 上传基础参考图</h3>
               <p className="hint">请上传、拖入或粘贴一张底图。AI 将基于这张同一图片，结合上述分镜文案，为您生成多张局部被修改/重绘的不同画面！</p>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept="image/*" />
-              
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*" />
+
               {!baseImagePreview ? (
                 <button className="btn-upload" onClick={() => fileInputRef.current.click()}>📎 点击上传 / 拖入 / 粘贴单张底图</button>
               ) : (
@@ -680,7 +680,7 @@ export default function MultiImage() {
           <button onClick={handleExtractScenes} disabled={isExtracting || (activeTab === 'image' && !baseImagePreview)} className="btn-primary" style={{ marginTop: '1.5rem' }}>
             {isExtracting ? '⏳ 正在让AI深度阅读并提取分镜...' : '🪄 第一步：智能解析文案分镜'}
           </button>
-          
+
           {errorMessage && <div className="alert error">{errorMessage}</div>}
           {infoMessage && <div className="alert info">{infoMessage}</div>}
         </div>
@@ -697,7 +697,7 @@ export default function MultiImage() {
                 </div>
               ))}
             </div>
-            
+
             <button onClick={handleGenerateAll} disabled={isGenerating} className="btn-generate">
               {(() => {
                 if (isGenerating) return '🌌 正在并行渲染所有分镜...';
@@ -722,10 +722,10 @@ export default function MultiImage() {
             <div className="results-grid">
               {results.map((res, idx) => (
                 <div key={idx} className="result-item">
-                  
+
                   <div className="result-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>镜头 {idx + 1}</span>
-                    <button 
+                    <button
                       onClick={() => openPromptEditModal(idx)}
                       style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '1.2rem', padding: 0 }}
                       title="编辑提示词并重新生成"
@@ -735,14 +735,14 @@ export default function MultiImage() {
                   </div>
                   {res === null ? (
                     <div className="result-loading" style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                       <div style={{ transform: 'scale(0.35)', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                         <SingularityLoader />
-                       </div>
+                      <div style={{ transform: 'scale(0.35)', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <SingularityLoader />
+                      </div>
                     </div>
                   ) : res === 'error' ? (
                     <div className="result-error" style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                       <span style={{ color: '#ef4444' }}>生成失败</span>
-                      <button 
+                      <button
                         onClick={() => handleRetryGenerate(idx)}
                         style={{
                           background: 'rgba(239, 68, 68, 0.1)',
@@ -792,9 +792,9 @@ export default function MultiImage() {
             </div>
           </div>
         )}
-      
+
         {/* History Gallery Section */}
-        <HistoryGallery 
+        <HistoryGallery
           email={email}
           emailStatus={emailStatus}
           initialHistoryList={historyList}
@@ -802,7 +802,7 @@ export default function MultiImage() {
 
       </div>
 
-      <ImageMarkupModal 
+      <ImageMarkupModal
         isOpen={editingImageIdx}
         onClose={() => setEditingImageIdx(false)}
         imageUrl={baseImagePreview}
