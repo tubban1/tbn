@@ -533,53 +533,55 @@ export default function MultiImage() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <h3 style={{ margin: 0 }}>1. 输入长文案 / 故事文档</h3>
-            <div className="doc-upload-wrapper">
-              <input
-                type="file"
-                id="doc-upload"
-                accept=".pdf,.docx,.txt"
-                style={{ display: 'none' }}
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  await handleDocumentFile(file);
-                  e.target.value = '';
-                }}
-              />
-              <button
-                onClick={() => document.getElementById('doc-upload').click()}
-                disabled={isExtracting}
-                style={{
-                  background: documentData ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                  border: documentData ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.2)',
-                  color: documentData ? '#34d399' : '#e2e8f0',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.1)';
-                }}
-              >
-                📄 {documentData ? `已加载: ${documentData.name.length > 10 ? documentData.name.substring(0, 10) + '...' : documentData.name}` : '上传 PDF/DOCX 直接分析'}
-              </button>
-              {documentData && (
+            {activeTab === 'text' && (
+              <div className="doc-upload-wrapper">
+                <input
+                  type="file"
+                  id="doc-upload"
+                  accept=".pdf,.docx,.txt"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    await handleDocumentFile(file);
+                    e.target.value = '';
+                  }}
+                />
                 <button
-                  onClick={() => { setDocumentData(null); setInfoMessage('文档已移除。'); }}
-                  style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', marginLeft: '5px' }}
+                  onClick={() => document.getElementById('doc-upload').click()}
+                  disabled={isExtracting}
+                  style={{
+                    background: documentData ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                    border: documentData ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.2)',
+                    color: documentData ? '#34d399' : '#e2e8f0',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!documentData) e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                  }}
                 >
-                  ✕
+                  📄 {documentData ? `已加载: ${documentData.name.length > 10 ? documentData.name.substring(0, 10) + '...' : documentData.name}` : '上传 PDF/DOCX 直接分析'}
                 </button>
-              )}
-            </div>
+                {documentData && (
+                  <button
+                    onClick={() => { setDocumentData(null); setInfoMessage('文档已移除。'); }}
+                    style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', marginLeft: '5px' }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <p className="hint">AI会自动阅读长文并提取分镜画面</p>
           <textarea

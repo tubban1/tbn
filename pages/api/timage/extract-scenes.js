@@ -87,11 +87,24 @@ Format:
       userMessageContent.push({ type: 'image_url', image_url: { url: image } });
     }
     if (documentBase64) {
-      instructions = 'Please analyze the attached document ' + (text ? 'and the following text ' : '') + 'then extract scenes:\n\n';
-      userMessageContent.push({
-        type: 'image_url', // Most OpenAI adapters for Gemini map image_url with PDF mime to inline_data
-        image_url: { url: `data:${documentMimeType || 'application/pdf'};base64,${documentBase64}` }
-      });
+      if (documentMimeType && documentMimeType.includes('wordprocessingml.document')) {
+        try {
+          const mammoth = require('mammoth');
+          const buffer = Buffer.from(documentBase64, 'base64');
+          const result = await mammoth.extractRawText({ buffer });
+          instructions = 'Please analyze the following document content ' + (text ? 'along with the user text ' : '') + 'then extract scenes:\n\n';
+          userMessageContent.push({ type: 'text', text: `<DocumentContent>\n${result.value}\n</DocumentContent>\n` });
+        } catch (err) {
+          console.error('[Extract Scenes] Failed to parse DOCX:', err);
+          return res.status(400).json({ success: false, error: 'Failed to read the Word document format. Please copy-paste the text instead.' });
+        }
+      } else {
+        instructions = 'Please analyze the attached document ' + (text ? 'and the following text ' : '') + 'then extract scenes:\n\n';
+        userMessageContent.push({
+          type: 'image_url', // Most OpenAI adapters for Gemini map image_url with PDF mime to inline_data
+          image_url: { url: `data:${documentMimeType || 'application/pdf'};base64,${documentBase64}` }
+        });
+      }
     }
     if (text) {
       userMessageContent.push({ type: 'text', text: instructions + text });
