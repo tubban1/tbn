@@ -1,4 +1,5 @@
 import { query } from '../../lib/db';
+import { initDiagnosisTables } from '../../lib/diagnosis_init';
 
 export default async function handler(req, res) {
   try {
@@ -59,6 +60,9 @@ export default async function handler(req, res) {
         FOREIGN KEY (page_uid) REFERENCES pages(uid) ON DELETE CASCADE
       )
     `);
+
+    // 6. 初始化诊断相关的表
+    await initDiagnosisTables();
 
     res.status(200).json({ message: '所有表已成功创建' });
   } catch (error) {
