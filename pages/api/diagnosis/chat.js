@@ -16,10 +16,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '方法不允许' });
   }
 
-  const { sessionId, message } = req.body || {};
+  const { sessionId, message, email, password } = req.body || {};
 
   if (!sessionId || !message || message.trim() === '') {
     return res.status(400).json({ error: '缺少会话 ID 或消息内容' });
+  }
+  if (!email || !password) {
+    return res.status(401).json({ error: '请先登录后继续诊断' });
   }
 
   // 立即开始流式响应，保证毫秒级 TTFB 反馈
@@ -31,11 +34,20 @@ export default async function handler(req, res) {
   });
 
   // 第一时间写回开场轻量 Chunk，打消等待焦虑
-  res.write("我先记录下这些信息，正在深度为您分析中...\n\n");
+  res.write("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n");
 
   try {
     // 1. 获取当前会话状态，判断是否存在
-    const sessions = await query(`SELECT * FROM diagnosis_sessions WHERE id = ?`, [sessionId]);
+    const users = await query(
+      `SELECT email FROM user_credits WHERE email = ? AND password = ? LIMIT 1`,
+      [email, password]
+    );
+    if (users.length === 0) {
+      res.write("登录状态无效，请重新登录。");
+      return res.end();
+    }
+
+    const sessions = await query(`SELECT * FROM diagnosis_sessions WHERE id = ? AND email = ?`, [sessionId, email]);
     if (sessions.length === 0) {
       res.write("抱歉，未能找到该诊断会话。请刷新重试。");
       return res.end();
@@ -113,16 +125,18 @@ ${JSON.stringify(currentFacts, null, 2)}
 当前的对话历史记录:
 ${conversationContext}
 
-请基于最新的对话历史，针对用户的陈述进行追问或诊断建议回复。
+请基于最新的对话历史，先给出一个简短商业判断，再提出一个低负担追问，帮助企业把模糊问题变成可落地的 AI 机会。
 `;
 
-    const systemPrompt = `你是一位资深的企业 AI 转型咨询专家和架构师。你的目标是通过多轮访谈对话，深入了解企业的各个维度，以便评估其 AI 转型成熟度并输出方案。
+    const systemPrompt = `你是一位面向企业老板和业务负责人的 AI 机会挖掘顾问。你的目标不是让用户填问卷，而是用多轮轻量对话，帮企业找出最值得先做的省钱、增收、提效或避坑机会，并最终沉淀为 30/60/90 天落地清单。
 
 【回复原则】：
-1. 你的回复需要专业、共情、充满启发性，并采用中文。
-2. 保持与用户的良性沟通，循序渐进地引导他们提供有关其企业的流程、数据基础 and 业务目标的细节。
-3. 请直接输出你的对话回复文本，严禁返回 JSON 格式，也不要用任何 markdown 标签（如 \`\`\`json）包裹。
-4. 特别注意：如果用户在最新陈述中表示出困惑、否认先前的目标或方向（例如表示自己没有关注降本增效），你必须在回复的最开始首先诚恳致歉并承认理解偏差，随即引导用户重新确认其真正的诊断方向，而不是固执强推假设。`;
+1. 每次回复先给一个明确判断，例如“这更像报价效率问题”“这里可能有客户转化机会”“这个不适合先做 AI，先补数据更划算”。
+2. 不要连续抛出一串问题。每轮最多问 1 个主问题，必要时给 2~4 个选项让用户容易回答。
+3. 多使用老板能理解的收益语言：少花多少人力、少等多久、少漏多少客户、先试哪个小切口。
+4. 不要假装已经知道用户没有提供的信息。可以提出假设，但要明确说“我先假设一下”，并邀请用户纠正。
+5. 如果用户否认先前方向或表示困惑，先承认理解偏差，再重新定位真正目标。
+6. 请直接输出中文对话文本，严禁返回 JSON，也不要用 markdown 代码块。`;
 
     let stream;
     try {
@@ -209,7 +223,7 @@ ${conversationContext}
 
     stream.on('end', async () => {
       clearTimeout(timeoutTimer);
-      const finalDBReply = "我先记录下这些信息，正在深度为您分析中...\n\n" + fullReply;
+      const finalDBReply = "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + fullReply;
       if (fullReply.trim()) {
         try {
           await query(
@@ -226,14 +240,14 @@ ${conversationContext}
     stream.on('error', async (err) => {
       clearTimeout(timeoutTimer);
       console.error('[Chat Stream Event Error]:', err);
-      await handleFallback(res, sessionId, "我先记录下这些信息，正在深度为您分析中...\n\n" + fullReply);
+      await handleFallback(res, sessionId, "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + fullReply);
     });
 
   } catch (error) {
     console.error('Diagnosis chat API error:', error);
     try {
       if (!res.writableEnded) {
-        await handleFallback(res, sessionId, "我先记录下这些信息，正在深度为您分析中...\n\n");
+        await handleFallback(res, sessionId, "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n");
       }
     } catch (fallbackErr) {
       console.error('Failed to execute fallback:', fallbackErr);
@@ -246,7 +260,7 @@ ${conversationContext}
 
 // 统一超时与异常兜底回复函数
 async function handleFallback(res, sessionId, currentAccumulated) {
-  const fallbackReply = "我已安全地记录下了您所提供的信息，正在后台为您整理并提取企业画像。由于网络连接稍有迟缓，我可能暂时未能完全展开我的分析。您可以继续和我聊聊其他方面，或者稍候片刻在右侧查看画像的更新情况。";
+  const fallbackReply = "我已记录下这个场景，后台会继续整理机会画像。网络稍慢时，您也可以先补一句：这件事最耗人的地方是人工重复、客户等待、数据分散，还是容易出错？";
   
   const responseText = currentAccumulated.includes(fallbackReply)
     ? currentAccumulated

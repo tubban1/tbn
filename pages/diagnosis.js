@@ -16,6 +16,8 @@ export default function DiagnosisPage() {
   const [report, setReport] = useState(null);
   const [isRestoredSession, setIsRestoredSession] = useState(false);
   const [profileStatus, setProfileStatus] = useState('idle'); // idle, updating, updated, failed
+  const [diagnosisHistory, setDiagnosisHistory] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // UI state
   const [inputText, setInputText] = useState('');
@@ -47,11 +49,6 @@ export default function DiagnosisPage() {
       handleVerifyEmail(storedEmail, storedPassword);
     }
 
-    // 恢复历史诊断会话
-    const storedSessionId = localStorage.getItem('diagnosis_session_id');
-    if (storedSessionId) {
-      loadSession(storedSessionId);
-    }
   }, []);
 
   // 2. 聊天区域自动滚到底部
@@ -72,7 +69,7 @@ export default function DiagnosisPage() {
       if (!sessionId) return;
       pollCount++;
       try {
-        const res = await axios.get(`/api/diagnosis/session?id=${sessionId}`);
+        const res = await axios.post('/api/diagnosis/session', { id: sessionId, email, password });
         if (res.data?.success) {
           const { session, knownFacts: facts, missingFields: missing } = res.data;
           
@@ -134,6 +131,7 @@ export default function DiagnosisPage() {
         localStorage.setItem('timage_email', emailToVerify);
         localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
+        await loadDiagnosisHistory(emailToVerify, passwordToVerify, true);
       }
     } catch (err) {
       console.error(err);
@@ -151,6 +149,13 @@ export default function DiagnosisPage() {
     setPassword('');
     setEmailStatus('none');
     setCredits(0);
+    setDiagnosisHistory([]);
+    setSessionId(null);
+    setStatus('welcome');
+    setMessages([]);
+    setKnownFacts({});
+    setMissingFields([]);
+    setReport(null);
   };
 
   const triggerToast = (msg) => {
@@ -161,10 +166,39 @@ export default function DiagnosisPage() {
     }, 4000);
   };
 
-  // 加载已有的诊断会话
-  const loadSession = async (sid) => {
+  const loadDiagnosisHistory = async (emailToLoad = email, passwordToUse = password, restoreLatest = false) => {
+    if (!emailToLoad || !passwordToUse) return;
+    setIsHistoryLoading(true);
     try {
-      const res = await axios.get(`/api/diagnosis/session?id=${sid}`);
+      const res = await axios.post('/api/diagnosis/history', {
+        email: emailToLoad,
+        password: passwordToUse
+      });
+      if (res.data?.success) {
+        const sessions = res.data.sessions || [];
+        setDiagnosisHistory(sessions);
+        const storedSessionId = localStorage.getItem('diagnosis_session_id');
+        const sessionToRestore = sessions.find(item => item.id === storedSessionId) || sessions[0];
+        if (restoreLatest && sessionToRestore) {
+          await loadSession(sessionToRestore.id, emailToLoad, passwordToUse);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load diagnosis history:', err);
+      triggerToast(err.response?.data?.error || '诊断历史加载失败');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  // 加载已有的诊断会话
+  const loadSession = async (sid, emailToUse = email, passwordToUse = password) => {
+    try {
+      const res = await axios.post('/api/diagnosis/session', {
+        id: sid,
+        email: emailToUse,
+        password: passwordToUse
+      });
       if (res.data?.success) {
         const { session, messages: historyMsgs, knownFacts: facts, missingFields: missing, report: rep } = res.data;
         setSessionId(session.id);
@@ -176,6 +210,7 @@ export default function DiagnosisPage() {
         setReport(rep || null);
         setIsRestoredSession(true); // 已恢复历史会话
         setProfileStatus(session.profileStatus || 'idle');
+        localStorage.setItem('diagnosis_session_id', session.id);
         if (rep) {
           setActiveTab('report');
         } else {
@@ -192,6 +227,10 @@ export default function DiagnosisPage() {
 
   // 开启新的诊断会话
   const handleStartDiagnosis = async (selectedGoal) => {
+    if (emailStatus !== 'verified' || !email || !password) {
+      triggerToast('请先登录账号，再开始 AI 机会扫描');
+      return;
+    }
     if (!selectedGoal) {
       triggerToast('请先选择一个诊断目标');
       return;
@@ -202,7 +241,8 @@ export default function DiagnosisPage() {
     setProfileStatus('idle');
     try {
       const res = await axios.post('/api/diagnosis/start', {
-        email: email || null,
+        email,
+        password,
         goal: selectedGoal
       });
       if (res.data?.success) {
@@ -216,6 +256,7 @@ export default function DiagnosisPage() {
         setReport(null);
         setActiveTab('profile');
         localStorage.setItem('diagnosis_session_id', newSid);
+        loadDiagnosisHistory(email, password, false);
       }
     } catch (err) {
       console.error(err);
@@ -223,6 +264,9 @@ export default function DiagnosisPage() {
       triggerToast('启动诊断会话失败，请重试');
     } finally {
       setIsChatLoading(false);
+      if (emailStatus === 'verified') {
+        loadDiagnosisHistory(email, password, false);
+      }
     }
   };
 
@@ -273,7 +317,9 @@ export default function DiagnosisPage() {
         },
         body: JSON.stringify({
           sessionId,
-          message: userMsg
+          message: userMsg,
+          email,
+          password
         })
       });
 
@@ -319,14 +365,14 @@ export default function DiagnosisPage() {
     setIsReportLoading(true);
     setErrorMsg('');
     try {
-      const res = await axios.post('/api/diagnosis/report', { sessionId });
+      const res = await axios.post('/api/diagnosis/report', { sessionId, email, password });
       if (res.data?.success) {
         setReport(res.data.report);
         setStatus('report_ready');
         setActiveTab('report');
         triggerToast('🎉 您的企业 AI 转型诊断报告已成功生成！');
         // 重新拉取一次对话历史以更新报告生成的系统提示通知
-        const sessionRes = await axios.get(`/api/diagnosis/session?id=${sessionId}`);
+        const sessionRes = await axios.post('/api/diagnosis/session', { id: sessionId, email, password });
         if (sessionRes.data?.success) {
           setMessages(sessionRes.data.messages || []);
         }
@@ -412,6 +458,18 @@ export default function DiagnosisPage() {
     return { label: '智能期 (全链路AI协同)', color: '#10b981' };
   };
 
+  const formatHistoryTitle = (item) => {
+    if (item.lastUserMessage) {
+      return item.lastUserMessage.length > 24 ? `${item.lastUserMessage.slice(0, 24)}...` : item.lastUserMessage;
+    }
+    return `机会扫描 ${new Date(item.createdAt).toLocaleDateString()}`;
+  };
+
+  const formatHistoryTime = (value) => {
+    if (!value) return '';
+    return new Date(value).toLocaleString();
+  };
+
   return (
     <div className={`app-container ${status !== 'welcome' && sessionId ? 'fixed-workbench' : ''}`}>
       <Head>
@@ -453,6 +511,11 @@ export default function DiagnosisPage() {
             </div>
 
             <div className="goal-selection-card animate-slide-up">
+              {emailStatus !== 'verified' && (
+                <div className="login-required-banner">
+                  请先在右上角登录账号。登录后才能开始机会扫描，所有对话、画像和报告会自动保存到该账号。
+                </div>
+              )}
               <h2>先占一个“便宜”：看看哪里能少花钱、多出单</h2>
               <p className="goal-subtitle">选一个最像您当前处境的入口。Agent 会先给判断，再用很轻的问题把真实需求挖出来：</p>
               
@@ -479,13 +542,51 @@ export default function DiagnosisPage() {
                 ))}
               </div>
 
-              {isChatLoading && (
+	              {isChatLoading && (
                 <div className="welcome-loading">
                   <div className="loading-spinner"></div>
                   <span>正在准备机会扫描顾问，请稍候...</span>
                 </div>
               )}
             </div>
+
+            {emailStatus === 'verified' && (
+              <div className="history-card animate-slide-up">
+                <div className="history-header">
+                  <div>
+                    <h3>账号历史机会扫描</h3>
+                    <p>同一账号下的诊断会话都会保存在数据库，重新进入可继续查看。</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-history-refresh"
+                    onClick={() => loadDiagnosisHistory(email, password, false)}
+                    disabled={isHistoryLoading}
+                  >
+                    刷新
+                  </button>
+                </div>
+                {isHistoryLoading ? (
+                  <div className="history-empty">正在加载历史记录...</div>
+                ) : diagnosisHistory.length > 0 ? (
+                  <div className="history-list">
+                    {diagnosisHistory.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="history-item"
+                        onClick={() => loadSession(item.id)}
+                      >
+                        <span className="history-title">{formatHistoryTitle(item)}</span>
+                        <span className="history-meta">{item.completeness}% · {item.messageCount} 条 · {formatHistoryTime(item.updatedAt)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="history-empty">这个账号还没有诊断历史。选择上方入口开始第一轮。</div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* 诊断工作台主界面 */
@@ -526,6 +627,32 @@ export default function DiagnosisPage() {
                     {status === 'diagnosing' && '测算机会优先级'}
                     {status === 'report_ready' && '落地清单已就绪'}
                   </span>
+                </div>
+
+                <div className="divider"></div>
+
+                <div className="history-mini-block">
+                  <div className="history-mini-title">
+                    <span>账号历史</span>
+                    <button type="button" onClick={() => loadDiagnosisHistory(email, password, false)} disabled={isHistoryLoading}>刷新</button>
+                  </div>
+                  {diagnosisHistory.length > 0 ? (
+                    <div className="history-mini-list">
+                      {diagnosisHistory.slice(0, 6).map(item => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`history-mini-item ${item.id === sessionId ? 'active' : ''}`}
+                          onClick={() => loadSession(item.id)}
+                        >
+                          <span>{formatHistoryTitle(item)}</span>
+                          <small>{item.completeness}% · {formatHistoryTime(item.updatedAt)}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="history-mini-empty">暂无历史</div>
+                  )}
                 </div>
 
                 <div className="divider"></div>
@@ -993,6 +1120,18 @@ export default function DiagnosisPage() {
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
 
+        .login-required-banner {
+          margin-bottom: 1rem;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: rgba(245, 158, 11, 0.1);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          color: #fbbf24;
+          font-size: 0.82rem;
+          line-height: 1.5;
+          text-align: left;
+        }
+
         .goal-selection-card h2 {
           font-family: 'Outfit', sans-serif;
           font-size: 1.4rem;
@@ -1010,6 +1149,89 @@ export default function DiagnosisPage() {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
+        }
+
+        .history-card {
+          margin-top: 1rem;
+          width: 100%;
+          background: rgba(15, 23, 42, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 16px;
+          padding: 1rem;
+          text-align: left;
+        }
+
+        .history-header {
+          display: flex;
+          justify-content: space-between;
+          gap: 1rem;
+          align-items: flex-start;
+          margin-bottom: 0.85rem;
+        }
+
+        .history-header h3 {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #f8fafc;
+        }
+
+        .history-header p {
+          margin: 4px 0 0 0;
+          color: #64748b;
+          font-size: 0.75rem;
+          line-height: 1.5;
+        }
+
+        .btn-history-refresh {
+          background: rgba(13, 148, 136, 0.14);
+          border: 1px solid rgba(13, 148, 136, 0.3);
+          color: #5eead4;
+          border-radius: 8px;
+          padding: 7px 10px;
+          cursor: pointer;
+          font-size: 0.72rem;
+        }
+
+        .history-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.65rem;
+        }
+
+        .history-item {
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(30, 41, 59, 0.5);
+          color: #cbd5e1;
+          border-radius: 10px;
+          padding: 10px 12px;
+          cursor: pointer;
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .history-item:hover {
+          border-color: rgba(45, 212, 191, 0.35);
+          color: #ffffff;
+        }
+
+        .history-title {
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .history-meta {
+          font-size: 0.68rem;
+          color: #64748b;
+        }
+
+        .history-empty {
+          color: #64748b;
+          font-size: 0.78rem;
+          padding: 0.75rem;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.02);
         }
 
         .goal-btn-item {
@@ -1251,6 +1473,71 @@ export default function DiagnosisPage() {
           height: 1px;
           background: rgba(255, 255, 255, 0.05);
           margin-bottom: 1.25rem;
+        }
+
+        .history-mini-block {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+        }
+
+        .history-mini-title {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          color: #cbd5e1;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+
+        .history-mini-title button {
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #94a3b8;
+          border-radius: 6px;
+          padding: 3px 7px;
+          cursor: pointer;
+          font-size: 0.65rem;
+        }
+
+        .history-mini-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+          max-height: 180px;
+          overflow-y: auto;
+        }
+
+        .history-mini-item {
+          width: 100%;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(15, 23, 42, 0.35);
+          color: #94a3b8;
+          border-radius: 8px;
+          padding: 8px;
+          text-align: left;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .history-mini-item.active {
+          border-color: rgba(45, 212, 191, 0.35);
+          color: #f8fafc;
+          background: rgba(13, 148, 136, 0.1);
+        }
+
+        .history-mini-item span {
+          font-size: 0.72rem;
+          font-weight: 700;
+        }
+
+        .history-mini-item small,
+        .history-mini-empty {
+          color: #64748b;
+          font-size: 0.64rem;
         }
 
         /* 缺失列表 */

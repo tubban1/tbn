@@ -5,17 +5,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '方法不允许' });
   }
 
-  const { sessionId, force } = req.body || {};
+  const { sessionId, email, password, force } = req.body || {};
 
   if (!sessionId) {
     return res.status(400).json({ error: '缺少会话 ID' });
   }
+  if (!email || !password) {
+    return res.status(401).json({ error: '请先登录后生成诊断报告' });
+  }
 
   try {
+    const users = await query(
+      `SELECT email FROM user_credits WHERE email = ? AND password = ? LIMIT 1`,
+      [email, password]
+    );
+    if (users.length === 0) {
+      return res.status(401).json({ error: '登录状态无效，请重新登录' });
+    }
+
     // 1. 获取当前会话状态，检查完整度是否达标
     const sessions = await query(
-      `SELECT completeness, status FROM diagnosis_sessions WHERE id = ?`,
-      [sessionId]
+      `SELECT completeness, status FROM diagnosis_sessions WHERE id = ? AND email = ?`,
+      [sessionId, email]
     );
 
     if (sessions.length === 0) {

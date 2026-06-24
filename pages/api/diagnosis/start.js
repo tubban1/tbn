@@ -6,9 +6,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '方法不允许' });
   }
 
-  const { email, goal } = req.body || {};
+  const { email, password, goal } = req.body || {};
+
+  if (!email || !password) {
+    return res.status(401).json({ error: '请先登录后再开始诊断' });
+  }
 
   try {
+    const users = await query(
+      `SELECT email FROM user_credits WHERE email = ? AND password = ? LIMIT 1`,
+      [email, password]
+    );
+    if (users.length === 0) {
+      return res.status(401).json({ error: '登录状态无效，请重新登录' });
+    }
+
     // 生成唯一 Session ID
     const sessionId = 'diag_' + crypto.randomBytes(16).toString('hex');
 
@@ -27,7 +39,7 @@ export default async function handler(req, res) {
     // 1. 创建 Session
     await query(
       `INSERT INTO diagnosis_sessions (id, email, status, completeness) VALUES (?, ?, ?, ?)`,
-      [sessionId, email || null, 'collecting_info', 0]
+      [sessionId, email, 'collecting_info', 0]
     );
 
     // 2. 初始化 Profile
