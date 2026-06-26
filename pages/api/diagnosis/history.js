@@ -1,4 +1,5 @@
 import { query } from '../../../lib/db';
+import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,6 +19,8 @@ export default async function handler(req, res) {
     if (users.length === 0) {
       return res.status(401).json({ error: '登录状态无效，请重新登录' });
     }
+
+    await ensureDiagnosisRuntimeSchema();
 
     const sessions = await query(
       `SELECT

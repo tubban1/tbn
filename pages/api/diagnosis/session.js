@@ -1,4 +1,5 @@
 import { query } from '../../../lib/db';
+import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,6 +23,8 @@ export default async function handler(req, res) {
     if (users.length === 0) {
       return res.status(401).json({ error: '登录状态无效，请重新登录' });
     }
+
+    await ensureDiagnosisRuntimeSchema();
 
     // 使用 1 次联合 LEFT JOIN 查询，一次性拉取会话、画像、报告和所有的对话消息
     // 这彻底避免了同一个 API 运行周期内多次调用 db.query() 和 db.end() 导致的连接冲突及挂起阻塞

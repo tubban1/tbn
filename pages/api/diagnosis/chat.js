@@ -1,6 +1,7 @@
 import { query } from '../../../lib/db';
 import { extractDiagnosisProfile, extractDiagnosisProfileLocally } from '../../../lib/diagnosis_extract';
 import { formatErrorForLog } from '../../../lib/safe_error';
+import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 import axios from 'axios';
 import https from 'https';
 
@@ -95,6 +96,8 @@ export default async function handler(req, res) {
       res.write("登录状态无效，请重新登录。");
       return res.end();
     }
+
+    await ensureDiagnosisRuntimeSchema();
 
     const sessions = await query(`SELECT * FROM diagnosis_sessions WHERE id = ? AND email = ? AND COALESCE(is_hidden, FALSE) = FALSE`, [sessionId, email]);
     if (sessions.length === 0) {

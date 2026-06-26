@@ -1,5 +1,6 @@
 import { query } from '../../../lib/db';
 import { formatErrorForLog } from '../../../lib/safe_error';
+import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,6 +24,8 @@ export default async function handler(req, res) {
     if (users.length === 0) {
       return res.status(401).json({ error: '登录状态无效，请重新登录' });
     }
+
+    await ensureDiagnosisRuntimeSchema();
 
     // 1. 获取当前会话状态，检查完整度是否达标
     const sessions = await query(
