@@ -2,8 +2,7 @@ import { query } from '../../../lib/db';
 import { extractDiagnosisProfile, extractDiagnosisProfileLocally } from '../../../lib/diagnosis_extract';
 import { formatErrorForLog } from '../../../lib/safe_error';
 import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
-import axios from 'axios';
-import https from 'https';
+import { extractStreamTextFromJson, streamText } from '../../../lib/text_model_provider';
 
 function runAfterResponse(res, task) {
   res.on('finish', () => {
@@ -22,15 +21,7 @@ function handleStreamLine(line, res, replyRef) {
     try {
       const dataStr = trimmed.slice(5).trim();
       const json = JSON.parse(dataStr);
-      let content = json.choices?.[0]?.delta?.content || '';
-
-      if (!content && Array.isArray(json.candidates)) {
-        content = json.candidates
-          .flatMap(candidate => candidate.content?.parts || [])
-          .filter(part => !part.thought && typeof part.text === 'string')
-          .map(part => part.text)
-          .join('');
-      }
+      const content = extractStreamTextFromJson(json);
 
       if (content) {
         replyRef.value += content;
@@ -150,21 +141,6 @@ export default async function handler(req, res) {
       [sessionId]
     );
 
-    // 7. 读取 AI 配置
-    const API_KEY = process.env.VECTORENGINE_GEMINI_KEY;
-    const API_BASE = process.env.VECTORENGINE_GEMINI_STREAM_BASE || 'https://api.vectorengine.ai/v1beta';
-    const MODEL = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
-
-    if (!API_KEY) {
-      const errReply = 'API配置错误: VECTORENGINE_GEMINI_KEY 未配置';
-      await query(
-        `INSERT INTO diagnosis_messages (session_id, sender, content) VALUES (?, ?, ?)`,
-        [sessionId, 'agent', errReply]
-      );
-      res.write(errReply);
-      return res.end();
-    }
-
     // 构造快速对话的 Prompt
     const conversationContext = historyMessages.map(msg => {
       return `${msg.sender === 'user' ? '用户' : '转型顾问 Agent'}: ${msg.content}`;
@@ -192,43 +168,12 @@ ${conversationContext}
 
     let stream;
     try {
-      // 发起大模型流式请求
-      const response = await axios.post(
-        `${API_BASE.replace(/\/$/, '')}/models/${MODEL}:streamGenerateContent?key=&alt=sse`,
-        {
-          systemInstruction: {
-            parts: [
-              { text: systemPrompt }
-            ]
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: promptUserContent }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.6,
-            topP: 1,
-            thinkingConfig: {
-              includeThoughts: false,
-              thinkingBudget: parseInt(process.env.GEMINI_THINKING_BUDGET || '8192', 10)
-            }
-          }
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${API_KEY}`
-          },
-          timeout: 70000,
-          responseType: 'stream',
-          httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        }
-      );
-      stream = response.data;
+      stream = await streamText({
+        systemPrompt,
+        userPrompt: promptUserContent,
+        temperature: 0.6,
+        timeout: 70000
+      });
     } catch (apiErr) {
       console.error('[Chat API Request Error]:', formatErrorForLog(apiErr));
       await safeEndWithFallback('');

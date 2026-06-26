@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { query } from '../../../lib/db';
 import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
+import { generateText } from '../../../lib/text_model_provider';
 
 export const config = {
   api: {
@@ -24,16 +25,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
-    const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-
-    // We can use a fast model like gpt-4o-mini or gemini-1.5-flash for text extraction
-    const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
-
-    if (!apiKey) {
-      return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
-    }
-
     await ensureCreditsTables();
 
     const CREDITS_PER_TEXT = 1;
@@ -112,35 +103,51 @@ Format:
       userMessageContent.push({ type: 'text', text: instructions });
     }
 
-    console.log(`[Extract Scenes] Sending request to VectorEngine:`, {
-      model: promptModel,
+    console.log(`[Extract Scenes] Sending request to text model provider:`, {
       textLength: text ? text.length : 0,
       hasImage: !!image,
       hasDocument: !!documentBase64
     });
 
-    const response = await axios.post(
-      `${apiBase}/chat/completions`,
-      {
-        model: promptModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessageContent }
-        ],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 60000,
-        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+    let content = '';
+    const canUseTextProvider = userMessageContent.every(part => part.type === 'text');
+    if (canUseTextProvider) {
+      content = await generateText({
+        systemPrompt,
+        userPrompt: userMessageContent.map(part => part.text).join('\n\n'),
+        temperature: 0.7,
+        timeout: 60000
+      });
+    } else {
+      const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
+      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+      const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
+      if (!apiKey) {
+        return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured for multimodal scene extraction' });
       }
-    );
+      const response = await axios.post(
+        `${apiBase}/chat/completions`,
+        {
+          model: promptModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessageContent }
+          ],
+          temperature: 0.7
+        },
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 60000,
+          httpsAgent: new https.Agent({ rejectUnauthorized: false })
+        }
+      );
+      content = response.data?.choices?.[0]?.message?.content || '';
+    }
 
-    const content = response.data?.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error('No content returned from AI model');
     }

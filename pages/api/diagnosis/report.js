@@ -1,6 +1,7 @@
 import { query } from '../../../lib/db';
 import { formatErrorForLog } from '../../../lib/safe_error';
 import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
+import { generateText } from '../../../lib/text_model_provider';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -60,15 +61,6 @@ export default async function handler(req, res) {
       knownFacts = typeof profiles[0].known_facts === 'string' ? JSON.parse(profiles[0].known_facts) : profiles[0].known_facts || {};
     } catch (e) {
       knownFacts = profiles[0].known_facts || {};
-    }
-
-    // 2. 调用大模型生成结构化报告
-    const API_KEY = process.env.VECTORENGINE_GEMINI_KEY;
-    const API_BASE = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-    const MODEL = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
-
-    if (!API_KEY) {
-      return res.status(500).json({ error: 'API配置错误: VECTORENGINE_GEMINI_KEY 未配置' });
     }
 
     // 搜索/工具调用预留层（当前为第一阶段 MVP，定义抽象接口占位）
@@ -134,31 +126,12 @@ ${JSON.stringify(knownFacts, null, 2)}
 
     const systemPrompt = `你是一位资深的企业 AI 增长转型诊断专家、顶级 IT 咨询顾问和 AI 架构师。你需要根据用户提供的企业基本信息、当前流程痛点以及技术/数据底座，输出高水准、切实可行的企业 AI 增长转型诊断报告。请确保返回的内容详实、落地且格式为严格的 JSON。`;
 
-    const axios = require('axios');
-    const https = require('https');
-
-    const response = await axios.post(
-      `${API_BASE}/chat/completions`,
-      {
-        model: MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: promptUserContent }
-        ],
-        temperature: 0.3
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
-        },
-        timeout: 90000,
-        httpsAgent: new https.Agent({ rejectUnauthorized: false })
-      }
-    );
-
-    const resJson = response.data;
-    const rawContent = resJson.choices?.[0]?.message?.content || '';
+    const rawContent = await generateText({
+      systemPrompt,
+      userPrompt: promptUserContent,
+      temperature: 0.3,
+      timeout: 90000
+    });
 
     // 解析 JSON
     let reportObj = null;

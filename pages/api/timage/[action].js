@@ -10,6 +10,7 @@ import {
   uploadToFreeimageHost,
   calculateCreditsForSize
 } from '../../../lib/image-agent-helpers';
+import { generateText } from '../../../lib/text_model_provider';
 
 export const config = {
   api: {
@@ -120,14 +121,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'userPrompt is required' });
       }
 
-      const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
-      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-      const promptModel = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
-
-      if (!apiKey) {
-        return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured in .env' });
-      }
-
       await ensureCreditsTables();
 
       const CREDITS_PER_TEXT = 1;
@@ -189,33 +182,16 @@ export default async function handler(req, res) {
 
       const userMessage = `用户输入的简单想法是：'${userPrompt}'\n当前旅游物料类别是：'${categoryName || '旅游攻略图'}'`;
 
-      console.log(`[TImage Optimize] Sending prompt optimization request to VectorEngine:`, {
-        model: promptModel,
+      console.log(`[TImage Optimize] Sending prompt optimization request to text model provider:`, {
         userPrompt: userPrompt.substring(0, 50)
       });
 
-      const response = await axios.post(
-        `${apiBase}/chat/completions`,
-        {
-          model: promptModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
-          ],
-          temperature: 0.8
-        },
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 60000,
-          httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        }
-      );
-
-      const content = response.data?.choices?.[0]?.message?.content;
+      const content = await generateText({
+        systemPrompt,
+        userPrompt: userMessage,
+        temperature: 0.8,
+        timeout: 60000
+      });
       if (!content) {
         throw new Error('No content returned from AI model');
       }

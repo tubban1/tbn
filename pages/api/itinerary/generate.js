@@ -1,7 +1,6 @@
-import axios from 'axios';
-import https from 'https';
 import { query } from '../../../lib/db';
 import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
+import { generateText } from '../../../lib/text_model_provider';
 
 export const config = {
   api: {
@@ -34,14 +33,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
-    const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-    const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
-
-    if (!apiKey) {
-      return res.status(500).json({ success: false, error: 'API key is not configured' });
-    }
-
     await ensureCreditsTables();
 
     // Optionally handle credits (deduct 1 credit for an itinerary)
@@ -113,28 +104,12 @@ export default async function handler(req, res) {
 补充兴趣点：${interests || '无'}
 `;
 
-    const response = await axios.post(
-      `${apiBase}/chat/completions`,
-      {
-        model: promptModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessageContent }
-        ],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 90000,
-        httpsAgent: new https.Agent({ rejectUnauthorized: false })
-      }
-    );
-
-    const content = response.data?.choices?.[0]?.message?.content;
+    const content = await generateText({
+      systemPrompt,
+      userPrompt: userMessageContent,
+      temperature: 0.7,
+      timeout: 90000
+    });
     if (!content) {
       throw new Error('No content returned from AI model');
     }
