@@ -16,6 +16,7 @@ export default function Header({
   onToggleTheme
 }) {
   const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   return (
     <>
@@ -30,6 +31,17 @@ export default function Header({
           </div>
 
           <div className="user-section">
+            <button
+              type="button"
+              className="mobile-menu-trigger"
+              onClick={() => setShowMobileMenu(prev => !prev)}
+              aria-expanded={showMobileMenu}
+              aria-label="打开账号菜单"
+            >
+              {emailStatus === 'verified' ? '账号' : '登录'}
+            </button>
+
+            <div className={`header-actions ${showMobileMenu ? 'mobile-open' : ''}`}>
             {onToggleTheme && (
               <button
                 type="button"
@@ -46,7 +58,7 @@ export default function Header({
                   <span className="user-email">✉️ {email}</span>
                   <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
                   <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
-                  <button onClick={onLogout} className="btn-logout">退出</button>
+                  <button onClick={() => { setShowMobileMenu(false); onLogout(); }} className="btn-logout">退出</button>
                 </div>
               </div>
             ) : (
@@ -80,6 +92,7 @@ export default function Header({
                 <div className="auth-helper">首次使用会自动注册；当前不发送邮箱验证码，请使用真实邮箱并保存密码。</div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
@@ -285,6 +298,27 @@ export default function Header({
 	          align-items: center;
 	          gap: 0.75rem;
 	          min-width: 0;
+	          position: relative;
+	        }
+
+	        .header-actions {
+	          display: flex;
+	          align-items: center;
+	          gap: 0.75rem;
+	          min-width: 0;
+	        }
+
+	        .mobile-menu-trigger {
+	          display: none;
+	          border: 1px solid var(--color-border);
+	          background: rgba(255, 255, 255, 0.08);
+	          color: var(--color-text-main);
+	          border-radius: 999px;
+	          padding: 0.5rem 0.85rem;
+	          font-size: 0.82rem;
+	          font-weight: 800;
+	          cursor: pointer;
+	          white-space: nowrap;
 	        }
 
 	        .theme-toggle-btn {
@@ -327,6 +361,7 @@ export default function Header({
 	        }
 
 	        .theme-light .theme-toggle-btn,
+	        .theme-light .mobile-menu-trigger,
 	        .theme-light .user-badge {
 	          background: #ffffff;
 	          color: #0f172a;
@@ -472,38 +507,101 @@ export default function Header({
 
 	        @media (max-width: 920px) {
 	          .header-container {
-	            align-items: flex-start;
-	            flex-direction: column;
-	            gap: 0.9rem;
+	            align-items: center;
+	            flex-direction: row;
+	            gap: 0.75rem;
 	            padding: 0.85rem 1rem;
 	          }
 
-	          .user-section,
+	          .logo-section {
+	            min-width: 0;
+	            flex: 1;
+	            gap: 0.65rem;
+	          }
+
+	          .logo-img {
+	            width: 32px;
+	            height: 32px;
+	          }
+
+	          .logo-section > div {
+	            min-width: 0;
+	          }
+
+	          .logo-title,
+	          .logo-tagline {
+	            overflow: hidden;
+	            text-overflow: ellipsis;
+	            white-space: nowrap;
+	          }
+
+	          .user-section {
+	            margin-left: auto;
+	            flex-shrink: 0;
+	          }
+
+	          .mobile-menu-trigger {
+	            display: inline-flex;
+	            align-items: center;
+	            justify-content: center;
+	          }
+
+	          .header-actions {
+	            display: none;
+	            position: absolute;
+	            right: 0;
+	            top: calc(100% + 0.65rem);
+	            width: min(86vw, 340px);
+	            z-index: 80;
+	            background: rgba(15, 23, 42, 0.96);
+	            border: 1px solid var(--color-border);
+	            border-radius: 16px;
+	            padding: 0.85rem;
+	            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+	            backdrop-filter: blur(16px);
+	            -webkit-backdrop-filter: blur(16px);
+	            flex-direction: column;
+	            align-items: stretch;
+	            gap: 0.7rem;
+	          }
+
+	          .header-actions.mobile-open {
+	            display: flex;
+	          }
+
+	          .theme-light .header-actions {
+	            background: rgba(255, 255, 255, 0.98);
+	            border-color: rgba(15, 23, 42, 0.08);
+	            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+	          }
+
+	          .theme-toggle-btn,
 	          .login-stack,
-	          .user-stack {
+	          .user-stack,
+	          .login-form,
+	          .user-badge {
 	            width: 100%;
 	            align-items: stretch;
 	          }
 
 	          .theme-toggle-btn {
-	            align-self: flex-start;
+	            text-align: center;
 	          }
 
 	          .login-form,
 	          .user-badge {
-	            width: 100%;
-	            flex-wrap: wrap;
+	            flex-direction: column;
 	            border-radius: 14px;
+	            gap: 0.6rem;
 	          }
 
-	          .login-input {
-	            flex: 1 1 180px;
-	            width: auto;
-	            min-width: 0;
-	          }
-
-	          .btn-login {
-	            flex: 1 1 120px;
+	          .login-input,
+	          .btn-login,
+	          .btn-recharge,
+	          .btn-logout {
+	            width: 100%;
+	            box-sizing: border-box;
+	            min-height: 40px;
 	          }
 
 	          .auth-helper {
@@ -521,23 +619,12 @@ export default function Header({
 	            font-size: 0.68rem;
 	          }
 
-	          .login-form,
-	          .user-badge {
-	            flex-direction: column;
-	            align-items: stretch;
-	            gap: 0.55rem;
-	            padding: 0;
-	            background: transparent;
-	            border: none;
+	          .header-container {
+	            padding: 0.7rem 0.85rem;
 	          }
 
-	          .login-input,
-	          .btn-login,
-	          .btn-recharge,
-	          .btn-logout {
-	            width: 100%;
-	            box-sizing: border-box;
-	            min-height: 40px;
+	          .header-actions {
+	            width: min(90vw, 330px);
 	          }
 
 	          .user-email,
