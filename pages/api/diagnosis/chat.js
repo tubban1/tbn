@@ -21,7 +21,16 @@ function handleStreamLine(line, res, replyRef) {
     try {
       const dataStr = trimmed.slice(5).trim();
       const json = JSON.parse(dataStr);
-      const content = json.choices?.[0]?.delta?.content || '';
+      let content = json.choices?.[0]?.delta?.content || '';
+
+      if (!content && Array.isArray(json.candidates)) {
+        content = json.candidates
+          .flatMap(candidate => candidate.content?.parts || [])
+          .filter(part => !part.thought && typeof part.text === 'string')
+          .map(part => part.text)
+          .join('');
+      }
+
       if (content) {
         replyRef.value += content;
         res.write(content);
@@ -140,7 +149,7 @@ export default async function handler(req, res) {
 
     // 7. 读取 AI 配置
     const API_KEY = process.env.VECTORENGINE_GEMINI_KEY;
-    const API_BASE = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+    const API_BASE = process.env.VECTORENGINE_GEMINI_STREAM_BASE || 'https://api.vectorengine.ai/v1beta';
     const MODEL = process.env.PROMPT_MODEL || 'gemini-3.1-flash-lite';
 
     if (!API_KEY) {
@@ -165,10 +174,10 @@ ${JSON.stringify(currentFacts, null, 2)}
 当前的对话历史记录:
 ${conversationContext}
 
-请基于最新的对话历史，先给出一个简短商业判断，再提出一个低负担追问，帮助企业把模糊问题变成可落地的 AI 机会。
+请基于最新的对话历史，先给出一个简短商业判断，再提出一个低负担追问，帮助企业把模糊问题变成可落地的 AI 增长转型路径。
 `;
 
-    const systemPrompt = `你是一位面向企业老板和业务负责人的 AI 机会挖掘顾问。你的目标不是让用户填问卷，而是用多轮轻量对话，帮企业找出最值得先做的省钱、增收、提效或避坑机会，并最终沉淀为 30/60/90 天落地清单。
+    const systemPrompt = `你是一位面向企业老板和业务负责人的企业 AI 增长转型诊断顾问。你的目标不是让用户填问卷，而是用多轮轻量对话，帮企业找出最值得先做的增长、降本、提效或避坑路径，并最终沉淀为 30/60/90 天企业 AI 增长转型诊断报告。
 
 【回复原则】：
 1. 每次回复先给一个明确判断，例如“这更像报价效率问题”“这里可能有客户转化机会”“这个不适合先做 AI，先补数据更划算”。
@@ -182,15 +191,29 @@ ${conversationContext}
     try {
       // 发起大模型流式请求
       const response = await axios.post(
-        `${API_BASE}/chat/completions`,
+        `${API_BASE.replace(/\/$/, '')}/models/${MODEL}:streamGenerateContent?key=&alt=sse`,
         {
-          model: MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: promptUserContent }
+          systemInstruction: {
+            parts: [
+              { text: systemPrompt }
+            ]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: promptUserContent }
+              ]
+            }
           ],
-          temperature: 0.6,
-          stream: true
+          generationConfig: {
+            temperature: 0.6,
+            topP: 1,
+            thinkingConfig: {
+              includeThoughts: false,
+              thinkingBudget: parseInt(process.env.GEMINI_THINKING_BUDGET || '8192', 10)
+            }
+          }
         },
         {
           headers: {

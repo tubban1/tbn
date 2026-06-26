@@ -35,13 +35,13 @@ export default async function handler(req, res) {
     }
 
     const currentSession = sessions[0];
-    if (currentSession.completeness < 80) {
+    if (currentSession.completeness < 50) {
       // 仅限非生产环境（NODE_ENV !== 'production'）下配合 force: true 参数用于开发调试
       const isDevelopment = process.env.NODE_ENV !== 'production';
       const allowBypass = isDevelopment && force === true;
       if (!allowBypass) {
         return res.status(400).json({ 
-          error: `当前信息完整度仅为 ${currentSession.completeness}%，不足 80%，请继续与 AI 顾问沟通以补充深度细节。` 
+          error: `当前信息完整度仅为 ${currentSession.completeness}%，不足 50%，请继续与 AI 顾问沟通以补充必要信息。` 
         });
       }
     }
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
 以下是基于我们之前的访谈，整理出的企业画像事实数据：
 ${JSON.stringify(knownFacts, null, 2)}
 
-请基于上述已确定的企业事实数据，进行深度诊断，输出一份专业的“企业 AI 转型诊断报告”。
+请基于上述已确定的企业事实数据，进行深度诊断，输出一份专业的“企业 AI 增长转型诊断报告”。
 你必须输出并且仅输出一个合法的 JSON 对象，不要包含其他解释性文字或 markdown 块。如果你使用了 \`\`\`json \`\`\` 包装，请确保它内容是合法的且可被解析的 JSON。
 
 输出的 JSON 格式必须是：
@@ -129,7 +129,7 @@ ${JSON.stringify(knownFacts, null, 2)}
 }
 `;
 
-    const systemPrompt = `你是一位资深的企业 AI 转型诊断专家、顶级 IT 咨询顾问和 AI 架构师。你需要根据用户提供的企业基本信息、当前流程痛点以及技术/数据底座，输出高水准、切实可行的企业 AI 转型诊断报告。请确保返回的内容详实、落地且格式为严格的 JSON。`;
+    const systemPrompt = `你是一位资深的企业 AI 增长转型诊断专家、顶级 IT 咨询顾问和 AI 架构师。你需要根据用户提供的企业基本信息、当前流程痛点以及技术/数据底座，输出高水准、切实可行的企业 AI 增长转型诊断报告。请确保返回的内容详实、落地且格式为严格的 JSON。`;
 
     const axios = require('axios');
     const https = require('https');
@@ -225,7 +225,7 @@ ${JSON.stringify(knownFacts, null, 2)}
     );
 
     // 5. 插入一条系统提示消息到消息表，通知用户报告已经出炉
-    const reportNotifyText = `🎉 您的企业 AI 转型诊断报告已经生成完毕！您可以通过右侧的“诊断报告”面板查看多维度分析与 30/60/90 天落地路线图。如果后续还有任何补充信息，也欢迎继续发送，您可以随时重新生成最新的报告。`;
+    const reportNotifyText = `🎉 您的企业 AI 增长转型诊断报告已经生成完毕！您可以通过右侧的“诊断报告”面板查看多维度分析与 30/60/90 天落地路线图。如果后续还有任何补充信息，也欢迎继续发送，您可以随时重新生成最新的报告。`;
     await query(
       `INSERT INTO diagnosis_messages (session_id, sender, content) VALUES (?, ?, ?)`,
       [sessionId, 'agent', reportNotifyText]

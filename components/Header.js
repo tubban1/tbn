@@ -48,7 +48,6 @@ export default function Header({
                   <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
                   <button onClick={onLogout} className="btn-logout">退出</button>
                 </div>
-                <div className="auth-helper success">账号已登录，诊断历史会自动保存到该邮箱账号。</div>
               </div>
             ) : (
               <div className="login-stack">

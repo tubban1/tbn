@@ -133,7 +133,7 @@ export default function DiagnosisPage() {
         localStorage.setItem('timage_email', emailToVerify);
         localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
-        triggerToast(response.data.isNewUser ? '注册成功：当前无需邮箱验证码，诊断历史会保存到该邮箱账号。' : '登录成功：诊断历史会保存到该邮箱账号。');
+        triggerToast(response.data.isNewUser ? '注册成功：当前无需邮箱验证码，诊断历史会保存到该邮箱账号。' : '验证成功：诊断历史会保存到该邮箱账号。');
         await loadDiagnosisHistory(emailToVerify, passwordToVerify, true);
       }
     } catch (err) {
@@ -208,7 +208,7 @@ export default function DiagnosisPage() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>企业 AI 机会诊断报告</title>
+          <title>企业 AI 增长转型诊断报告</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; margin: 0; padding: 36px; line-height: 1.65; }
             h1 { font-size: 26px; margin: 0 0 6px; }
@@ -228,7 +228,7 @@ export default function DiagnosisPage() {
           </style>
         </head>
         <body>
-          <h1>企业 AI 机会诊断报告</h1>
+          <h1>企业 AI 增长转型诊断报告</h1>
           <div class="meta">生成时间：${escapeHtml(new Date().toLocaleString())}</div>
           <section class="summary">
             <div><span class="score">${escapeHtml(report.maturityScore)}</span>转型成熟度评分</div>
@@ -401,7 +401,7 @@ export default function DiagnosisPage() {
   // 开启新的诊断会话
   const handleStartDiagnosis = async (selectedGoal) => {
     if (emailStatus !== 'verified' || !email || !password) {
-      triggerToast('请先登录账号，再开始 AI 机会扫描');
+      triggerToast('请先登录账号，再开始免费企业 AI 增长转型诊断');
       return;
     }
     if (!selectedGoal) {
@@ -543,7 +543,7 @@ export default function DiagnosisPage() {
         setReport(res.data.report);
         setStatus('report_ready');
         setActiveTab('report');
-        triggerToast('🎉 您的企业 AI 转型诊断报告已成功生成！');
+        triggerToast('🎉 您的企业 AI 增长转型诊断报告已成功生成！');
         // 重新拉取一次对话历史以更新报告生成的系统提示通知
         const sessionRes = await axios.post('/api/diagnosis/session', { id: sessionId, email, password });
         if (sessionRes.data?.success) {
@@ -577,17 +577,17 @@ export default function DiagnosisPage() {
   };
 
   const goals = [
-    '先找能省下来的人工和时间 (把重复活变成自动化)',
-    '先找能多赚的客户转化机会 (销售/客服/运营 Agent)',
-    '先找老板最容易拍板的 AI 试点 (30天内见到小成果)',
-    '我也说不清，让顾问帮我挖隐藏需求'
+    '增长转化诊断 (销售/客服/运营 Agent)',
+    '降本提效诊断 (把重复活变成自动化)',
+    'AI 试点落地诊断 (30天内见到小成果)',
+    '综合转型诊断 (让顾问帮我梳理方向)'
   ];
 
   // 渲染诊断维度的显示卡片
   const renderProfileFields = () => {
     const dimensionMapping = {
       basicInfo: { label: '企业规模与场景', desc: '行业、团队、老板关心的业务盘子', icon: '🏢' },
-      businessGoal: { label: '可拿回的收益', desc: '省人、省时间、增收、少出错', icon: '💰' },
+      businessGoal: { label: '增长与降本目标', desc: '增长、降本、提效、少出错', icon: '💰' },
       currentProcess: { label: '最值得自动化的环节', desc: '重复劳动、卡点、客户等待', icon: '🔄' },
       dataFoundation: { label: '已有数据资产', desc: '表格、系统、客户记录、知识库', icon: '📊' },
       techFoundation: { label: '现有工具底座', desc: 'CRM/ERP/飞书/企微/工单等', icon: '🛠️' },
@@ -635,7 +635,7 @@ export default function DiagnosisPage() {
     if (item.lastUserMessage) {
       return item.lastUserMessage.length > 24 ? `${item.lastUserMessage.slice(0, 24)}...` : item.lastUserMessage;
     }
-    return `机会扫描 ${new Date(item.createdAt).toLocaleDateString()}`;
+    return `增长转型诊断 ${new Date(item.createdAt).toLocaleDateString()}`;
   };
 
   const formatHistoryTime = (value) => {
@@ -646,14 +646,14 @@ export default function DiagnosisPage() {
   return (
     <div className={`app-container theme-${themeMode} ${status !== 'welcome' && sessionId ? 'fixed-workbench' : ''}`}>
       <Head>
-        <title>天工创界 | AI 省钱增收机会扫描</title>
-        <meta name="description" content="用一次轻量访谈，帮企业老板快速找出可省钱、可增收、可落地的 AI 机会点" />
+        <title>天工创界 | 免费企业 AI 增长转型诊断</title>
+        <meta name="description" content="免费企业 AI 增长转型诊断，用轻量访谈帮助企业识别增长、降本、提效和转型落地路径" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
       <Header
         title="天工创界"
-        subtitle="AI 省钱增收机会扫描"
+        subtitle="免费企业 AI 增长转型诊断"
         email={email}
         setEmail={setEmail}
         password={password}
@@ -678,21 +678,32 @@ export default function DiagnosisPage() {
           /* 目标选择欢迎页 */
           <div className="welcome-container">
             <div className="welcome-hero animate-fade-in">
-              <span className="welcome-badge">AI OPPORTUNITY SCAN</span>
-              <h1>先找能省钱、能多赚的 AI 机会</h1>
+              <span className="welcome-badge">FREE AI GROWTH DIAGNOSIS</span>
+              <h1>免费企业 AI 增长转型诊断</h1>
               <p className="welcome-description">
-                不先卖方案，不让您填长问卷。先用几轮顾问式对话，帮老板把重复耗人的环节、流失的客户机会和 30 天内能试出效果的小切口找出来。
+                不先卖方案，不让您填长问卷。通过几轮顾问式对话，帮企业识别增长机会、降本空间、效率瓶颈和 30/60/90 天可落地的 AI 转型路径。
               </p>
+            </div>
+
+            <div className="usage-guide-card animate-slide-up">
+              <h2>如何开始使用</h2>
+              <ol>
+                <li><strong>注册 / 登录：</strong>在右上角输入邮箱和密码，首次使用会自动注册。</li>
+                <li><strong>账号验证：</strong>再次进入时使用同一邮箱和密码验证身份，历史诊断会自动恢复。</li>
+                <li><strong>选择诊断入口：</strong>第一次进入选择一个最接近当前目标的入口，之后会直接进入上次对话。</li>
+                <li><strong>开始对话：</strong>直接描述企业最想增长、降本、提效或转型卡住的场景，AI 顾问会逐步追问。</li>
+                <li><strong>生成报告：</strong>信息完整后生成企业 AI 增长转型诊断报告，并可导出 PDF。</li>
+              </ol>
             </div>
 
             <div className="goal-selection-card animate-slide-up">
               {emailStatus !== 'verified' && (
                 <div className="login-required-banner">
-                  请先在右上角登录账号。登录后才能开始机会扫描，所有对话、画像和报告会自动保存到该账号。
+                  请先在右上角登录账号。登录后才能开始免费企业 AI 增长转型诊断，所有对话、画像和报告会自动保存到该账号。
                 </div>
               )}
-              <h2>先占一个“便宜”：看看哪里能少花钱、多出单</h2>
-              <p className="goal-subtitle">选一个最像您当前处境的入口。Agent 会先给判断，再用很轻的问题把真实需求挖出来：</p>
+              <h2>选择一个诊断入口</h2>
+              <p className="goal-subtitle">选一个最像您当前处境的入口。AI 顾问会先给判断，再用很轻的问题把真实需求梳理出来：</p>
               
               <div className="goals-grid">
                 {goals.map((g, idx) => (
@@ -720,7 +731,7 @@ export default function DiagnosisPage() {
 	              {isChatLoading && (
                 <div className="welcome-loading">
                   <div className="loading-spinner"></div>
-                  <span>正在准备机会扫描顾问，请稍候...</span>
+                  <span>正在准备企业 AI 增长转型诊断顾问，请稍候...</span>
                 </div>
               )}
             </div>
@@ -729,7 +740,7 @@ export default function DiagnosisPage() {
               <div className="history-card animate-slide-up">
                 <div className="history-header">
                   <div>
-                    <h3>账号历史机会扫描</h3>
+                    <h3>账号历史诊断</h3>
                     <p>同一账号下的诊断会话都会保存在数据库，重新进入可继续查看。</p>
                   </div>
                   <button
@@ -773,7 +784,7 @@ export default function DiagnosisPage() {
             {/* 左侧分栏：诊断进度和完整度 */}
             <div className="sidebar-col">
               <div className="sidebar-card">
-                <h3 className="section-title">机会挖掘进度</h3>
+                <h3 className="section-title">诊断进度</h3>
                 
                 {/* 完整度刻度 */}
                 <div className="completeness-block">
@@ -799,11 +810,11 @@ export default function DiagnosisPage() {
                 <div className="state-badge-container">
                   <span className="state-label">当前阶段:</span>
                   <span className={`state-value-tag ${status}`}>
-                    {status === 'collecting_info' && '正在找钱和省钱点'}
+                    {status === 'collecting_info' && '正在梳理增长与转型线索'}
                     {status === 'clarifying' && '锁定可落地小切口'}
                     {status === 'researching' && '匹配行业可抄作业案例'}
                     {status === 'diagnosing' && '测算机会优先级'}
-                    {status === 'report_ready' && '落地清单已就绪'}
+                    {status === 'report_ready' && '诊断报告已就绪'}
                   </span>
                 </div>
 
@@ -840,7 +851,7 @@ export default function DiagnosisPage() {
 
                 {/* 缺失维度提醒 */}
                 <div className="missing-list-block">
-                  <h4>还差这些就能出落地清单</h4>
+                  <h4>还差这些就能出诊断报告</h4>
                   {missingFields.length > 0 ? (
                     <ul className="missing-fields-list">
                       {missingFields.map((field, idx) => (
@@ -852,7 +863,7 @@ export default function DiagnosisPage() {
                     </ul>
                   ) : (
                     <div className="missing-empty-state">
-                      ✨ 机会已经比较清楚，可以生成落地清单！
+                      ✨ 诊断信息已经比较清楚，可以生成报告！
                     </div>
                   )}
                 </div>
@@ -871,16 +882,16 @@ export default function DiagnosisPage() {
                 <div className="chat-header">
                   <div className="status-indicator"></div>
                   <div>
-                    <h4>AI 机会挖掘对话</h4>
-                    <span className="chat-sub">先给判断，再用轻问题帮您找可落地收益</span>
+                    <h4>企业 AI 增长转型诊断对话</h4>
+                    <span className="chat-sub">先判断方向，再用轻问题沉淀可落地路径</span>
                   </div>
-                  {completeness >= 80 && (
+                  {completeness >= 50 && (
                     <button 
                       onClick={handleGenerateReport} 
                       className={`btn-action-report pulse-glow ${isReportLoading ? 'loading' : ''}`}
                       disabled={isReportLoading}
                     >
-                      {isReportLoading ? '正在整理落地清单...' : report ? '✨ 重新生成机会清单' : '✨ 生成省钱增收清单'}
+                      {isReportLoading ? '正在生成诊断报告...' : report ? '✨ 重新生成诊断报告' : '✨ 生成诊断报告'}
                     </button>
                   )}
                 </div>
@@ -894,7 +905,7 @@ export default function DiagnosisPage() {
                       </div>
                       <div className="message-bubble-content">
                         <div className="bubble-meta">
-                          {msg.sender === 'agent' ? '机会挖掘顾问' : '您'}
+                          {msg.sender === 'agent' ? 'AI 增长转型顾问' : '您'}
                         </div>
                         <div className="bubble-text">{msg.content}</div>
                       </div>
@@ -905,7 +916,7 @@ export default function DiagnosisPage() {
                     <div className="message-bubble-wrapper agent">
                       <div className="message-avatar">🤖</div>
                       <div className="message-bubble-content">
-                        <div className="bubble-meta">机会挖掘顾问正在判断哪里最值得做...</div>
+                        <div className="bubble-meta">AI 增长转型顾问正在思考...</div>
                         <div className="typing-indicator">
                           <span></span>
                           <span></span>
@@ -971,15 +982,15 @@ export default function DiagnosisPage() {
                     onClick={() => setActiveTab('profile')} 
                     className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
                   >
-                    💰 实时机会画像
+                    实时诊断画像
                   </button>
                   <button 
                     onClick={() => setActiveTab('report')} 
                     className={`tab-btn ${activeTab === 'report' ? 'active' : ''}`}
-                    disabled={!report && completeness < 80}
-                    title={completeness < 80 && !report ? '完整度达到 80% 后解锁报告' : ''}
+                    disabled={!report && completeness < 50}
+                    title={completeness < 50 && !report ? '完整度达到 50% 后解锁报告' : ''}
                   >
-                    📊 省钱增收清单 {!report && completeness < 80 && '🔒'}
+                    诊断报告 {!report && completeness < 50 && '🔒'}
                   </button>
                 </div>
 
@@ -989,8 +1000,8 @@ export default function DiagnosisPage() {
                     /* 选项卡一：企业画像 */
                     <div className="profile-tab-view animate-fade-in">
                       <div className="profile-intro">
-                        <h5>已识别的机会线索</h5>
-                        <p>越往下聊，越能看清哪里值得先做、能省多少麻烦、谁最该拍板：</p>
+                        <h5>已识别的诊断线索</h5>
+                        <p>越往下聊，越能看清增长空间、降本路径、提效切口和谁最该拍板：</p>
                       </div>
 
                       {profileStatus === 'updating' && (
@@ -1147,12 +1158,12 @@ export default function DiagnosisPage() {
                       ) : (
                         <div className="report-unlocked-state">
                           <span className="unlocked-icon">🔒</span>
-                          <h5>省钱增收清单未生成</h5>
-                          <p>继续把最耗人、最慢、最容易丢单的环节讲清楚。机会清晰度达到 80% 后，即可生成 30/60/90 天落地清单。</p>
+                          <h5>诊断报告未生成</h5>
+                          <p>继续把增长目标、流程瓶颈、数据基础和落地约束讲清楚。诊断信息达到 50% 后，即可生成 30/60/90 天增长转型报告。</p>
                           <div className="unlocked-progress-bar">
                             <div className="unlocked-progress-fill" style={{ width: `${completeness}%` }}></div>
                           </div>
-                          <span>当前信息收集度: {completeness} / 80 %</span>
+                          <span>当前信息收集度: {completeness} / 50 %</span>
                         </div>
                       )}
                     </div>
@@ -1290,6 +1301,41 @@ export default function DiagnosisPage() {
           line-height: 1.6;
           max-width: 720px;
           margin: 0 auto;
+        }
+
+        .usage-guide-card {
+          width: 100%;
+          background: rgba(15, 23, 42, 0.45);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+          border-radius: 18px;
+          padding: 1.35rem 1.5rem;
+          margin-bottom: 1rem;
+          text-align: left;
+          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+          box-sizing: border-box;
+        }
+
+        .usage-guide-card h2 {
+          margin: 0 0 0.8rem 0;
+          color: #f8fafc;
+          font-size: 1rem;
+        }
+
+        .usage-guide-card ol {
+          margin: 0;
+          padding-left: 1.2rem;
+          display: grid;
+          gap: 0.55rem;
+        }
+
+        .usage-guide-card li {
+          color: #94a3b8;
+          font-size: 0.82rem;
+          line-height: 1.55;
+        }
+
+        .usage-guide-card strong {
+          color: #e2e8f0;
         }
 
         /* 目标卡片选择 */
@@ -2689,6 +2735,7 @@ export default function DiagnosisPage() {
 
         .theme-light .welcome-description,
         .theme-light .goal-subtitle,
+        .theme-light .usage-guide-card li,
         .theme-light .card-desc-placeholder,
         .theme-light .history-meta,
         .theme-light .chat-sub,
@@ -2701,6 +2748,7 @@ export default function DiagnosisPage() {
         }
 
         .theme-light .goal-selection-card,
+        .theme-light .usage-guide-card,
         .theme-light .history-card,
         .theme-light .sidebar-card,
         .theme-light .chat-container-card,
@@ -2717,6 +2765,8 @@ export default function DiagnosisPage() {
         }
 
         .theme-light .goal-selection-card h2,
+        .theme-light .usage-guide-card h2,
+        .theme-light .usage-guide-card strong,
         .theme-light .history-header h3,
         .theme-light .section-title,
         .theme-light .chat-header h4,

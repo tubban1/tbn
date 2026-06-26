@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     if (!goal || goal.includes('不确定') || goal.includes('引导')) {
       welcomeText += `
       
-我会像顾问一样先听一个现象，再帮您判断它背后是省钱机会、增收机会，还是管理提效机会。
+我会像顾问一样先听一个现象，再帮您判断它背后是增长机会、降本空间，还是管理提效路径。
 
 先从最容易说的开始：最近团队每天最耗人、最慢、最容易出错或最影响成交的一件事是什么？`;
     } else {
