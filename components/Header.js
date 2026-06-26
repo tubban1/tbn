@@ -11,7 +11,9 @@ export default function Header({
   credits, 
   isCheckingEmail, 
   onVerifyEmail, 
-  onLogout 
+  onLogout,
+  themeMode = 'light',
+  onToggleTheme
 }) {
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
@@ -28,39 +30,55 @@ export default function Header({
           </div>
 
           <div className="user-section">
+            {onToggleTheme && (
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="theme-toggle-btn"
+                aria-label="切换亮色或暗色模式"
+              >
+                {themeMode === 'light' ? '🌙 暗色' : '☀️ 亮色'}
+              </button>
+            )}
             {emailStatus === 'verified' ? (
-              <div className="user-badge">
-                <span className="user-email">✉️ {email}</span>
-                <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
-                <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
-                <button onClick={onLogout} className="btn-logout">退出</button>
+              <div className="user-stack">
+                <div className="user-badge">
+                  <span className="user-email">✉️ {email}</span>
+                  <span className="user-credits">💎 剩余额度: <strong>{credits}</strong></span>
+                  <button onClick={() => setShowRechargeModal(true)} className="btn-recharge">⚡ 充值请联系</button>
+                  <button onClick={onLogout} className="btn-logout">退出</button>
+                </div>
+                <div className="auth-helper success">账号已登录，诊断历史会自动保存到该邮箱账号。</div>
               </div>
             ) : (
-              <div className="login-form">
-                <input
-                  type="email"
-                  placeholder="账号 (邮箱)..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="login-input email-input"
-                />
-                <input
-                  type="password"
-                  placeholder="密码..."
-                  value={password || ''}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="login-input password-input"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onVerifyEmail(email, password);
-                  }}
-                />
-                <button
-                  onClick={() => onVerifyEmail(email, password)}
-                  disabled={isCheckingEmail || !email || !password}
-                  className="btn-login"
-                >
-                  {isCheckingEmail ? '登录中...' : '登录 / 注册'}
-                </button>
+              <div className="login-stack">
+                <div className="login-form">
+                  <input
+                    type="email"
+                    placeholder="账号 (邮箱)..."
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="login-input email-input"
+                  />
+                  <input
+                    type="password"
+                    placeholder="密码..."
+                    value={password || ''}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="login-input password-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') onVerifyEmail(email, password);
+                    }}
+                  />
+                  <button
+                    onClick={() => onVerifyEmail(email, password)}
+                    disabled={isCheckingEmail || !email || !password}
+                    className="btn-login"
+                  >
+                    {isCheckingEmail ? '登录中...' : '登录 / 注册'}
+                  </button>
+                </div>
+                <div className="auth-helper">首次使用会自动注册；当前不发送邮箱验证码，请使用真实邮箱并保存密码。</div>
               </div>
             )}
           </div>
@@ -262,11 +280,103 @@ export default function Header({
           display: block;
         }
 
-        /* User Authentication Styling */
-        .login-form {
-          display: flex;
-          gap: 0.75rem;
-        }
+	        /* User Authentication Styling */
+	        .user-section {
+	          display: flex;
+	          align-items: center;
+	          gap: 0.75rem;
+	          min-width: 0;
+	        }
+
+	        .theme-toggle-btn {
+	          border: 1px solid var(--color-border);
+	          background: rgba(255, 255, 255, 0.06);
+	          color: var(--color-text-main);
+	          border-radius: 999px;
+	          padding: 0.45rem 0.75rem;
+	          font-size: 0.78rem;
+	          font-weight: 700;
+	          cursor: pointer;
+	          white-space: nowrap;
+	        }
+
+	        .login-stack,
+	        .user-stack {
+	          display: flex;
+	          flex-direction: column;
+	          align-items: flex-end;
+	          gap: 0.35rem;
+	          min-width: 0;
+	        }
+
+	        .auth-helper {
+	          color: var(--color-text-muted);
+	          font-size: 0.68rem;
+	          line-height: 1.35;
+	          text-align: right;
+	          max-width: 520px;
+	        }
+
+	        .auth-helper.success {
+	          color: #10b981;
+	        }
+
+	        .theme-light .site-header {
+	          background-color: rgba(255, 255, 255, 0.86);
+	          border-bottom-color: rgba(15, 23, 42, 0.08);
+	          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+	        }
+
+	        .theme-light .theme-toggle-btn,
+	        .theme-light .user-badge {
+	          background: #ffffff;
+	          color: #0f172a;
+	          border-color: rgba(15, 23, 42, 0.12);
+	          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+	        }
+
+	        .theme-light .logo-title,
+	        .theme-light .user-email {
+	          color: #0f172a;
+	        }
+
+	        .theme-light .logo-tagline {
+	          color: #0f766e;
+	        }
+
+	        .theme-light .login-input {
+	          background-color: #ffffff;
+	          border-color: rgba(15, 23, 42, 0.12);
+	          color: #0f172a;
+	        }
+
+	        .theme-light .login-input::placeholder {
+	          color: #94a3b8;
+	        }
+
+	        .theme-light .user-credits,
+	        .theme-light .btn-logout {
+	          color: #64748b;
+	        }
+
+	        .theme-light .auth-helper.success {
+	          color: #047857;
+	        }
+
+	        .theme-light .btn-logout:hover {
+	          color: #0f172a;
+	        }
+
+	        .theme-light .btn-recharge {
+	          background: #fff7ed;
+	          color: #c2410c;
+	          border-color: rgba(251, 146, 60, 0.35);
+	        }
+
+	        .login-form {
+	          display: flex;
+	          gap: 0.75rem;
+	        }
 
         .login-input {
           background-color: rgba(15, 23, 42, 0.6);
@@ -357,10 +467,87 @@ export default function Header({
           transition: color 0.2s ease;
         }
 
-        .btn-logout:hover {
-          color: #f1f5f9;
-        }
-      `}</style>
+	        .btn-logout:hover {
+	          color: #f1f5f9;
+	        }
+
+	        @media (max-width: 920px) {
+	          .header-container {
+	            align-items: flex-start;
+	            flex-direction: column;
+	            gap: 0.9rem;
+	            padding: 0.85rem 1rem;
+	          }
+
+	          .user-section,
+	          .login-stack,
+	          .user-stack {
+	            width: 100%;
+	            align-items: stretch;
+	          }
+
+	          .theme-toggle-btn {
+	            align-self: flex-start;
+	          }
+
+	          .login-form,
+	          .user-badge {
+	            width: 100%;
+	            flex-wrap: wrap;
+	            border-radius: 14px;
+	          }
+
+	          .login-input {
+	            flex: 1 1 180px;
+	            width: auto;
+	            min-width: 0;
+	          }
+
+	          .btn-login {
+	            flex: 1 1 120px;
+	          }
+
+	          .auth-helper {
+	            text-align: left;
+	            max-width: none;
+	          }
+	        }
+
+	        @media (max-width: 560px) {
+	          .logo-title {
+	            font-size: 1.05rem;
+	          }
+
+	          .logo-tagline {
+	            font-size: 0.68rem;
+	          }
+
+	          .login-form,
+	          .user-badge {
+	            flex-direction: column;
+	            align-items: stretch;
+	            gap: 0.55rem;
+	            padding: 0;
+	            background: transparent;
+	            border: none;
+	          }
+
+	          .login-input,
+	          .btn-login,
+	          .btn-recharge,
+	          .btn-logout {
+	            width: 100%;
+	            box-sizing: border-box;
+	            min-height: 40px;
+	          }
+
+	          .user-email,
+	          .user-credits {
+	            font-size: 0.78rem;
+	            overflow-wrap: anywhere;
+	          }
+	        }
+	      `}</style>
     </>
   );
 }

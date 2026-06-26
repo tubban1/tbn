@@ -27,6 +27,7 @@ export default function DiagnosisPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [themeMode, setThemeMode] = useState('light');
 
   // Header login states
   const [email, setEmail] = useState('');
@@ -36,6 +37,7 @@ export default function DiagnosisPage() {
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const isComposingRef = useRef(false);
 
   // 1. 初始化登录与历史会话状态
   useEffect(() => {
@@ -131,6 +133,7 @@ export default function DiagnosisPage() {
         localStorage.setItem('timage_email', emailToVerify);
         localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
+        triggerToast(response.data.isNewUser ? '注册成功：当前无需邮箱验证码，诊断历史会保存到该邮箱账号。' : '登录成功：诊断历史会保存到该邮箱账号。');
         await loadDiagnosisHistory(emailToVerify, passwordToVerify, true);
       }
     } catch (err) {
@@ -166,6 +169,137 @@ export default function DiagnosisPage() {
     }, 4000);
   };
 
+  const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  const renderPrintList = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return '<p class="muted">暂无</p>';
+    return `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+  };
+
+  const handleDownloadReportPdf = () => {
+    if (!report) {
+      triggerToast('请先生成诊断报告');
+      return;
+    }
+
+    const oppRows = (report.opportunityMap || []).map(item => `
+      <tr>
+        <td>${escapeHtml(item.title)}</td>
+        <td>${escapeHtml(item.value)}</td>
+        <td>${escapeHtml(item.complexity)}</td>
+        <td>${escapeHtml(item.priority)}</td>
+      </tr>
+    `).join('');
+
+    const agents = (report.recommendedAgents || []).map(item => `
+      <section>
+        <h3>${escapeHtml(item.name)}</h3>
+        <p><strong>核心功能：</strong>${escapeHtml(item.description)}</p>
+        <p><strong>系统对接：</strong>${escapeHtml(item.integration)}</p>
+      </section>
+    `).join('');
+
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>企业 AI 机会诊断报告</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; margin: 0; padding: 36px; line-height: 1.65; }
+            h1 { font-size: 26px; margin: 0 0 6px; }
+            h2 { font-size: 17px; margin: 28px 0 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+            h3 { font-size: 14px; margin: 14px 0 4px; }
+            p, li, td, th { font-size: 12px; }
+            .meta { color: #6b7280; font-size: 12px; margin-bottom: 22px; }
+            .score { display: inline-block; font-size: 34px; font-weight: 800; color: #0f766e; margin-right: 10px; }
+            .summary { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f3f4f6; }
+            section { break-inside: avoid; }
+            .muted { color: #9ca3af; }
+            @page { size: A4; margin: 18mm; }
+            @media print { body { padding: 0; } button { display: none; } }
+          </style>
+        </head>
+        <body>
+          <h1>企业 AI 机会诊断报告</h1>
+          <div class="meta">生成时间：${escapeHtml(new Date().toLocaleString())}</div>
+          <section class="summary">
+            <div><span class="score">${escapeHtml(report.maturityScore)}</span>转型成熟度评分</div>
+            <p>${escapeHtml(report.summary)}</p>
+          </section>
+          <h2>核心流程痛点</h2>
+          ${renderPrintList(report.painPoints)}
+          <h2>AI 场景落地机会地图</h2>
+          <table>
+            <thead><tr><th>推荐落地场景</th><th>商业价值</th><th>落地难度</th><th>优先级</th></tr></thead>
+            <tbody>${oppRows || '<tr><td colspan="4" class="muted">暂无</td></tr>'}</tbody>
+          </table>
+          <h2>推荐智能体设计</h2>
+          ${agents || '<p class="muted">暂无</p>'}
+          <h2>30/60/90 天落地路线图</h2>
+          <p><strong>Day 30：</strong>${escapeHtml(report.roadmap30_60_90?.day30)}</p>
+          <p><strong>Day 60：</strong>${escapeHtml(report.roadmap30_60_90?.day60)}</p>
+          <p><strong>Day 90：</strong>${escapeHtml(report.roadmap30_60_90?.day90)}</p>
+          <h2>必备数据与接口准备</h2>
+          ${renderPrintList(report.dataRequirements)}
+          <h2>潜在落地风险与合规建议</h2>
+          ${renderPrintList(report.risks)}
+          <h2>建议专家深度沟通问题</h2>
+          ${renderPrintList(report.nextActions)}
+        </body>
+      </html>`;
+
+    const existingFrame = document.getElementById('diagnosis-report-print-frame');
+    if (existingFrame) {
+      existingFrame.remove();
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'diagnosis-report-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '1px';
+    iframe.style.height = '1px';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const frameWindow = iframe.contentWindow;
+    const frameDoc = frameWindow?.document;
+    if (!frameWindow || !frameDoc) {
+      iframe.remove();
+      triggerToast('浏览器暂时无法打开 PDF 导出，请刷新后重试');
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(html);
+    frameDoc.close();
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          frameWindow.focus();
+          frameWindow.print();
+        } catch (err) {
+          console.error('Print report failed:', err);
+          triggerToast('浏览器未能打开打印窗口，请重试');
+        } finally {
+          setTimeout(() => iframe.remove(), 1200);
+        }
+      }, 250);
+    };
+  };
+
   const loadDiagnosisHistory = async (emailToLoad = email, passwordToUse = password, restoreLatest = false) => {
     if (!emailToLoad || !passwordToUse) return;
     setIsHistoryLoading(true);
@@ -188,6 +322,45 @@ export default function DiagnosisPage() {
       triggerToast(err.response?.data?.error || '诊断历史加载失败');
     } finally {
       setIsHistoryLoading(false);
+    }
+  };
+
+  const handleDeleteSession = async (sid) => {
+    if (!sid || !email || !password) return;
+    const confirmed = window.confirm('确定删除这条对话吗？');
+    if (!confirmed) return;
+
+    try {
+      const res = await axios.post('/api/diagnosis/delete', { sessionId: sid, email, password });
+      if (!res.data?.success) {
+        triggerToast(res.data?.error || '删除失败');
+        return;
+      }
+
+      const nextHistory = diagnosisHistory.filter(item => item.id !== sid);
+      setDiagnosisHistory(nextHistory);
+      triggerToast('已从历史列表删除');
+
+      if (sid === sessionId) {
+        localStorage.removeItem('diagnosis_session_id');
+        const nextSession = nextHistory[0];
+        if (nextSession) {
+          await loadSession(nextSession.id);
+        } else {
+          setSessionId(null);
+          setStatus('welcome');
+          setCompleteness(0);
+          setKnownFacts({});
+          setMissingFields([]);
+          setMessages([]);
+          setReport(null);
+          setGoal('');
+          setIsRestoredSession(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete diagnosis session:', err);
+      triggerToast(err.response?.data?.error || '删除失败，请稍后重试');
     }
   };
 
@@ -471,7 +644,7 @@ export default function DiagnosisPage() {
   };
 
   return (
-    <div className={`app-container ${status !== 'welcome' && sessionId ? 'fixed-workbench' : ''}`}>
+    <div className={`app-container theme-${themeMode} ${status !== 'welcome' && sessionId ? 'fixed-workbench' : ''}`}>
       <Head>
         <title>天工创界 | AI 省钱增收机会扫描</title>
         <meta name="description" content="用一次轻量访谈，帮企业老板快速找出可省钱、可增收、可落地的 AI 机会点" />
@@ -490,6 +663,8 @@ export default function DiagnosisPage() {
         isCheckingEmail={isCheckingEmail}
         onVerifyEmail={handleVerifyEmail}
         onLogout={handleLogout}
+        themeMode={themeMode}
+        onToggleTheme={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')}
       />
 
       {showToast && (
@@ -571,15 +746,18 @@ export default function DiagnosisPage() {
                 ) : diagnosisHistory.length > 0 ? (
                   <div className="history-list">
                     {diagnosisHistory.map(item => (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
                         className="history-item"
-                        onClick={() => loadSession(item.id)}
                       >
-                        <span className="history-title">{formatHistoryTitle(item)}</span>
-                        <span className="history-meta">{item.completeness}% · {item.messageCount} 条 · {formatHistoryTime(item.updatedAt)}</span>
-                      </button>
+                        <button type="button" className="history-item-main" onClick={() => loadSession(item.id)}>
+                          <span className="history-title">{formatHistoryTitle(item)}</span>
+                          <span className="history-meta">{item.completeness}% · {item.messageCount} 条 · {formatHistoryTime(item.updatedAt)}</span>
+                        </button>
+                        <button type="button" className="history-delete-btn" onClick={() => handleDeleteSession(item.id)} title="删除这条对话">
+                          删除
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -639,15 +817,18 @@ export default function DiagnosisPage() {
                   {diagnosisHistory.length > 0 ? (
                     <div className="history-mini-list">
                       {diagnosisHistory.slice(0, 6).map(item => (
-                        <button
+                        <div
                           key={item.id}
-                          type="button"
                           className={`history-mini-item ${item.id === sessionId ? 'active' : ''}`}
-                          onClick={() => loadSession(item.id)}
                         >
-                          <span>{formatHistoryTitle(item)}</span>
-                          <small>{item.completeness}% · {formatHistoryTime(item.updatedAt)}</small>
-                        </button>
+                          <button type="button" className="history-mini-main" onClick={() => loadSession(item.id)}>
+                            <span>{formatHistoryTitle(item)}</span>
+                            <small>{item.completeness}% · {formatHistoryTime(item.updatedAt)}</small>
+                          </button>
+                          <button type="button" className="history-mini-delete" onClick={() => handleDeleteSession(item.id)} title="删除">
+                            ×
+                          </button>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -678,7 +859,7 @@ export default function DiagnosisPage() {
 
                 <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
                   <button onClick={handleReset} className="btn-reset-session">
-                    🔄 重新找一轮机会
+                    新的对话
                   </button>
                 </div>
               </div>
@@ -706,16 +887,6 @@ export default function DiagnosisPage() {
 
                 {/* 对话列表 */}
                 <div className="messages-scroller">
-                  {isRestoredSession && (
-                    <div className="restored-session-banner animate-fade-in">
-                      <span className="banner-icon">🧭</span>
-                      <div className="banner-content">
-                        <span className="banner-title">已自动恢复上次机会挖掘</span>
-                        <p className="banner-desc">如果这不是当前最想省钱或增收的方向，可以重新开启一轮。</p>
-                        <button onClick={handleReset} className="banner-reset-btn">🔄 换个方向重新找机会</button>
-                      </div>
-                    </div>
-                  )}
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`message-bubble-wrapper ${msg.sender}`}>
                       <div className="message-avatar">
@@ -730,7 +901,7 @@ export default function DiagnosisPage() {
                     </div>
                   ))}
 
-                  {isChatLoading && (
+                  {isChatLoading && !messages.some(msg => String(msg.id || '').startsWith('agent_temp_') && msg.content) && (
                     <div className="message-bubble-wrapper agent">
                       <div className="message-avatar">🤖</div>
                       <div className="message-bubble-content">
@@ -762,20 +933,28 @@ export default function DiagnosisPage() {
                     className="chat-textarea"
                     rows={3}
                     disabled={isChatLoading || isReportLoading}
+                    onCompositionStart={() => {
+                      isComposingRef.current = true;
+                    }}
+                    onCompositionEnd={() => {
+                      isComposingRef.current = false;
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        handleSendMessage();
+                      if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current && !e.nativeEvent?.isComposing) {
+                        e.preventDefault();
+                        handleSendMessage(e);
                       }
                     }}
                   />
                   <div className="input-toolbar">
-                    <span className="input-tip">💡 不用写完整方案，说一个“每天最浪费人力的事”就能开始。</span>
                     <button 
                       type="submit" 
                       className="btn-send-message"
                       disabled={isChatLoading || isReportLoading || !inputText.trim()}
+                      aria-label="发送消息"
+                      title="发送消息"
                     >
-                      发送 ⚡
+                      ↑
                     </button>
                   </div>
                 </form>
@@ -834,6 +1013,11 @@ export default function DiagnosisPage() {
                     <div className="report-tab-view animate-fade-in">
                       {report ? (
                         <div className="report-doc-container">
+                          <div className="report-actions-row">
+                            <button type="button" className="btn-download-report" onClick={handleDownloadReportPdf}>
+                              导出 PDF
+                            </button>
+                          </div>
                           
                           {/* 成熟度大仪表盘 */}
                           <div className="report-hero-card">
@@ -1505,8 +1689,9 @@ export default function DiagnosisPage() {
           display: flex;
           flex-direction: column;
           gap: 0.45rem;
-          max-height: 180px;
+          max-height: 210px;
           overflow-y: auto;
+          padding-right: 2px;
         }
 
         .history-mini-item {
@@ -1515,12 +1700,13 @@ export default function DiagnosisPage() {
           background: rgba(15, 23, 42, 0.35);
           color: #94a3b8;
           border-radius: 8px;
-          padding: 8px;
+          padding: 7px;
           text-align: left;
-          cursor: pointer;
+          cursor: default;
           display: flex;
           flex-direction: column;
           gap: 3px;
+          box-sizing: border-box;
         }
 
         .history-mini-item.active {
@@ -1532,12 +1718,18 @@ export default function DiagnosisPage() {
         .history-mini-item span {
           font-size: 0.72rem;
           font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .history-mini-item small,
         .history-mini-empty {
           color: #64748b;
           font-size: 0.64rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         /* 缺失列表 */
@@ -1602,21 +1794,22 @@ export default function DiagnosisPage() {
         }
 
         .btn-reset-session {
-          background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: #64748b;
+          background: #0d9488;
+          border: 1px solid rgba(13, 148, 136, 0.45);
+          color: #ffffff;
           border-radius: 8px;
-          padding: 8px 12px;
-          font-size: 0.75rem;
+          padding: 10px 12px;
+          font-size: 0.78rem;
+          font-weight: 700;
           cursor: pointer;
           width: 100%;
           transition: all 0.2s ease;
         }
 
         .btn-reset-session:hover {
-          border-color: rgba(239, 68, 68, 0.3);
-          color: #f87171;
-          background: rgba(239, 68, 68, 0.05);
+          border-color: rgba(13, 148, 136, 0.65);
+          color: #ffffff;
+          background: #0f766e;
         }
 
         /* 中间聊天区样式 */
@@ -1812,22 +2005,22 @@ export default function DiagnosisPage() {
           padding: 1rem;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
           background: rgba(15, 23, 42, 0.3);
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          position: relative;
+          display: block;
         }
 
         .chat-textarea {
           background: rgba(15, 23, 42, 0.6);
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 12px;
-          padding: 10px 14px;
+          padding: 12px 58px 42px 14px;
           color: white;
           font-family: inherit;
           font-size: 0.85rem;
           line-height: 1.4;
           resize: none;
           width: 100%;
+          min-height: 88px;
           box-sizing: border-box;
           transition: border-color 0.2s ease;
         }
@@ -1838,9 +2031,13 @@ export default function DiagnosisPage() {
         }
 
         .input-toolbar {
+          position: absolute;
+          right: 1.6rem;
+          bottom: 1.45rem;
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          justify-content: center;
+          pointer-events: none;
         }
 
         .input-tip {
@@ -1852,22 +2049,29 @@ export default function DiagnosisPage() {
           background: #0d9488;
           border: none;
           color: white;
-          padding: 8px 16px;
-          border-radius: 8px;
-          font-size: 0.75rem;
+          width: 34px;
+          height: 34px;
+          padding: 0;
+          border-radius: 999px;
+          font-size: 1.05rem;
           font-weight: 700;
           cursor: pointer;
           transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+          pointer-events: auto;
         }
 
         .btn-send-message:hover:not(:disabled) {
           background: #0f766e;
-          transform: translateY(-1px);
+          transform: translateY(-1px) scale(1.02);
         }
 
         .btn-send-message:disabled {
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(255, 255, 255, 0.2);
+          background: rgba(148, 163, 184, 0.25);
+          color: rgba(255, 255, 255, 0.55);
           cursor: not-allowed;
         }
 
@@ -1919,9 +2123,10 @@ export default function DiagnosisPage() {
 
         .tab-content-scroller {
           flex: 1;
-          padding: 1rem;
+          padding: 1rem 1.2rem;
           overflow-y: auto;
           box-sizing: border-box;
+          min-width: 0;
         }
 
         /* 实时画像标签页 */
@@ -2084,7 +2289,8 @@ export default function DiagnosisPage() {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
-          padding-bottom: 2rem;
+          padding: 0 0.25rem 2rem;
+          box-sizing: border-box;
         }
 
         .report-hero-card {
@@ -2140,16 +2346,19 @@ export default function DiagnosisPage() {
 
         .report-section-block {
           border-top: 1px solid rgba(255, 255, 255, 0.05);
-          padding-top: 1.25rem;
+          padding: 1.25rem 0.25rem 0;
+          min-width: 0;
         }
 
         .rep-sec-title {
           font-family: 'Outfit', sans-serif;
-          font-size: 0.9rem;
+          font-size: 0.86rem;
           font-weight: 700;
           color: #f1f5f9;
           margin: 0 0 10px 0;
-          letter-spacing: 0.02em;
+          letter-spacing: 0;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
         }
 
         .pain-points-list-container {
@@ -2166,6 +2375,7 @@ export default function DiagnosisPage() {
           border: 1px solid rgba(239, 68, 68, 0.1);
           padding: 8px 12px;
           border-radius: 8px;
+          min-width: 0;
         }
 
         .pain-badge {
@@ -2176,6 +2386,8 @@ export default function DiagnosisPage() {
           padding: 1px 6px;
           border-radius: 4px;
           align-self: flex-start;
+          max-width: 100%;
+          white-space: normal;
         }
 
         .pain-bullet p {
@@ -2331,11 +2543,13 @@ export default function DiagnosisPage() {
 
         /* 列表元素 */
         .rep-bullet-ul {
-          padding-left: 1rem;
+          padding-left: 1.35rem;
+          padding-right: 0.45rem;
           margin: 0;
           display: flex;
           flex-direction: column;
           gap: 6px;
+          list-style-position: outside;
         }
 
         .rep-bullet-ul li {
@@ -2345,11 +2559,13 @@ export default function DiagnosisPage() {
         }
 
         .rep-bullet-ul-accent {
-          padding-left: 1rem;
+          padding-left: 1.35rem;
+          padding-right: 0.45rem;
           margin: 0;
           display: flex;
           flex-direction: column;
           gap: 6px;
+          list-style-position: outside;
         }
 
         .rep-bullet-ul-accent li {
@@ -2450,6 +2666,534 @@ export default function DiagnosisPage() {
           border-radius: 50%;
           animation: spin 1s linear infinite;
           flex-shrink: 0;
+        }
+
+        /* 亮色主题：默认给企业用户更清爽、低压的工作台 */
+        .app-container.theme-light,
+        .theme-light .main-workspace-full {
+          background: #f6f8fb;
+          color: #0f172a;
+        }
+
+        .theme-light .welcome-badge {
+          background: #dff7ef;
+          border-color: #9ee7d1;
+          color: #047857;
+        }
+
+        .theme-light .welcome-hero h1 {
+          background: linear-gradient(135deg, #0f172a 20%, #0f766e 72%, #f59e0b 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .theme-light .welcome-description,
+        .theme-light .goal-subtitle,
+        .theme-light .card-desc-placeholder,
+        .theme-light .history-meta,
+        .theme-light .chat-sub,
+        .theme-light .input-tip,
+        .theme-light .banner-desc,
+        .theme-light .profile-intro p,
+        .theme-light .timeline-content-card p,
+        .theme-light .rep-bullet-ul li {
+          color: #64748b;
+        }
+
+        .theme-light .goal-selection-card,
+        .theme-light .history-card,
+        .theme-light .sidebar-card,
+        .theme-light .chat-container-card,
+        .theme-light .tabbed-container-card {
+          background: rgba(255, 255, 255, 0.88);
+          border-color: rgba(15, 23, 42, 0.08);
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .login-required-banner {
+          background: #fff7ed;
+          border-color: #fed7aa;
+          color: #9a3412;
+        }
+
+        .theme-light .goal-selection-card h2,
+        .theme-light .history-header h3,
+        .theme-light .section-title,
+        .theme-light .chat-header h4,
+        .theme-light .profile-intro h5,
+        .theme-light .card-info h4,
+        .theme-light .report-unlocked-state h5,
+        .theme-light .timeline-content-card h6,
+        .theme-light .rep-sec-title {
+          color: #0f172a;
+        }
+
+        .theme-light .goal-btn-item,
+        .theme-light .history-item,
+        .theme-light .history-mini-item,
+        .theme-light .message-bubble-content,
+        .theme-light .state-badge-container,
+        .theme-light .card-body-text,
+        .theme-light .timeline-content-card,
+        .theme-light .restored-session-banner {
+          background: #ffffff;
+          border-color: rgba(15, 23, 42, 0.08);
+          color: #0f172a;
+        }
+
+        .theme-light .goal-btn-item:hover:not(:disabled),
+        .theme-light .history-item:hover {
+          background: #ecfdf5;
+          border-color: #99f6e4;
+          color: #0f172a;
+        }
+
+        .theme-light .goal-title-txt,
+        .theme-light .history-title,
+        .theme-light .bubble-text,
+        .theme-light .percent-num,
+        .theme-light .report-summary-p,
+        .theme-light .pain-bullet p,
+        .theme-light .agent-rec-card h5,
+        .theme-light .agent-desc-para,
+        .theme-light .agent-integ-para,
+        .theme-light .opp-title {
+          color: #0f172a;
+        }
+
+        .theme-light .goal-desc-txt,
+        .theme-light .percent-label,
+        .theme-light .state-label,
+        .theme-light .missing-fields-list li,
+        .theme-light .card-body-empty,
+        .theme-light .bubble-meta {
+          color: #64748b;
+        }
+
+        .theme-light .chat-header,
+        .theme-light .tabs-header {
+          background: #f8fafc;
+          border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .messages-scroller,
+        .theme-light .tab-content-scroller {
+          background: #f8fafc;
+        }
+
+        .theme-light .message-bubble-wrapper.user .message-bubble-content {
+          background: linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 100%);
+          border-color: #bae6fd;
+        }
+
+        .theme-light .chat-textarea {
+          background: #ffffff;
+          color: #0f172a;
+          border-color: rgba(15, 23, 42, 0.12);
+        }
+
+        .theme-light .chat-textarea::placeholder {
+          color: #94a3b8;
+        }
+
+        .theme-light .chat-input-wrapper {
+          background: #ffffff;
+          border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .profile-item-card.unknown {
+          background: #f8fafc;
+          border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .profile-item-card.known,
+        .theme-light .report-hero-card,
+        .theme-light .report-section-block,
+        .theme-light .agent-rec-card,
+        .theme-light .pain-bullet {
+          background: #ffffff;
+          border-color: rgba(15, 23, 42, 0.08);
+          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+        }
+
+        .theme-light .opp-map-table th {
+          background: #f1f5f9;
+          color: #334155;
+        }
+
+        .theme-light .opp-map-table td {
+          border-color: rgba(15, 23, 42, 0.08);
+          color: #0f172a;
+        }
+
+        .theme-light .divider {
+          background: rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .progress-bg {
+          stroke: rgba(15, 23, 42, 0.08);
+        }
+
+        .history-item {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .history-item-main,
+        .history-mini-main {
+          border: none;
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .history-delete-btn,
+        .history-mini-delete {
+          border: 1px solid rgba(239, 68, 68, 0.16);
+          background: rgba(239, 68, 68, 0.05);
+          color: #ef4444;
+          border-radius: 7px;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .history-delete-btn {
+          padding: 5px 8px;
+          font-size: 0.68rem;
+        }
+
+        .history-mini-item {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 30px;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .history-mini-delete {
+          width: 30px;
+          height: 28px;
+          line-height: 22px;
+          font-size: 1rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          overflow: visible;
+        }
+
+        .history-delete-btn:hover,
+        .history-mini-delete:hover {
+          background: rgba(239, 68, 68, 0.12);
+          border-color: rgba(239, 68, 68, 0.35);
+        }
+
+        .report-actions-row {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: -0.5rem;
+        }
+
+        .btn-download-report {
+          border: 1px solid rgba(13, 148, 136, 0.24);
+          background: rgba(13, 148, 136, 0.1);
+          color: #0f766e;
+          border-radius: 8px;
+          padding: 7px 11px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .btn-download-report:hover {
+          background: rgba(13, 148, 136, 0.16);
+        }
+
+        .theme-light .chat-container-card {
+          background: #ffffff;
+          border-color: rgba(15, 23, 42, 0.08);
+          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .theme-light .messages-scroller {
+          background: #ffffff;
+          padding: 1.4rem 1.5rem;
+          gap: 0.25rem;
+        }
+
+        .theme-light .message-bubble-wrapper {
+          width: 100%;
+          max-width: 100%;
+          border-radius: 0;
+          padding: 1rem 0;
+          gap: 12px;
+        }
+
+        .theme-light .message-bubble-wrapper.agent {
+          background: #ffffff;
+        }
+
+        .theme-light .message-bubble-wrapper.user {
+          background: #f7f7f8;
+          border-top: 1px solid rgba(15, 23, 42, 0.05);
+          border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+          align-self: stretch;
+          flex-direction: row;
+          margin-left: -1.5rem;
+          margin-right: -1.5rem;
+          padding-left: 1.5rem;
+          padding-right: 1.5rem;
+        }
+
+        .theme-light .message-avatar {
+          width: 28px;
+          height: 28px;
+          font-size: 0.95rem;
+          border-radius: 8px;
+          background: #f1f5f9;
+          border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-light .message-bubble-content {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          flex: 1;
+        }
+
+        .theme-light .message-bubble-wrapper.user .message-bubble-content {
+          background: transparent;
+          border: none;
+        }
+
+        .theme-light .message-bubble-wrapper.user .bubble-meta {
+          text-align: left;
+        }
+
+        .theme-light .bubble-text {
+          background: transparent;
+          border: none;
+          padding: 0;
+          border-radius: 0;
+          color: #111827;
+          font-size: 0.9rem;
+          line-height: 1.7;
+        }
+
+        .theme-light .message-bubble-wrapper.user .bubble-text {
+          background: transparent;
+          border: none;
+          color: #111827;
+        }
+
+        .theme-light .typing-indicator {
+          background: transparent;
+          padding: 4px 0;
+        }
+
+        .theme-light .typing-indicator span {
+          background: #9ca3af;
+        }
+
+        .theme-light .chat-input-wrapper {
+          background: #ffffff;
+          padding: 0.9rem 1rem 1rem;
+        }
+
+        .theme-light .chat-textarea {
+          border-radius: 16px;
+          border-color: rgba(15, 23, 42, 0.14);
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+          min-height: 88px;
+        }
+
+        @media (max-width: 992px) {
+          .app-container.fixed-workbench {
+            position: static;
+            height: auto;
+            min-height: 100vh;
+            overflow: visible;
+          }
+
+          .app-container.fixed-workbench .main-workspace-full {
+            height: auto;
+            overflow: visible;
+          }
+
+          .welcome-container {
+            padding: 2rem 1rem;
+            justify-content: flex-start;
+          }
+
+          .welcome-hero {
+            margin-bottom: 1.5rem;
+          }
+
+          .welcome-hero h1 {
+            font-size: 2rem;
+            line-height: 1.15;
+          }
+
+          .welcome-description {
+            font-size: 0.92rem;
+          }
+
+          .goal-selection-card {
+            padding: 1.25rem;
+            border-radius: 16px;
+          }
+
+          .history-list {
+            grid-template-columns: 1fr;
+          }
+
+          .workbench-layout {
+            grid-template-columns: 1fr;
+            height: auto;
+            min-height: 0;
+            padding: 0.85rem;
+            gap: 0.85rem;
+            overflow: visible;
+          }
+
+          .sidebar-card,
+          .chat-container-card,
+          .tabbed-container-card {
+            border-radius: 14px;
+          }
+
+          .completeness-circle-container {
+            width: 112px;
+            height: 112px;
+          }
+
+          .chat-container-card {
+            min-height: 68vh;
+          }
+
+          .messages-scroller {
+            min-height: 42vh;
+            max-height: none;
+          }
+
+          .profile-col {
+            min-height: 60vh;
+          }
+
+          .message-bubble-wrapper {
+            max-width: 96%;
+          }
+
+          .chat-header {
+            align-items: flex-start;
+            gap: 10px;
+          }
+
+          .btn-action-report {
+            margin-left: 0;
+            width: 100%;
+            margin-top: 0.75rem;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .welcome-container {
+            padding: 1.35rem 0.8rem;
+          }
+
+          .welcome-hero h1 {
+            font-size: 1.65rem;
+          }
+
+          .welcome-badge {
+            font-size: 0.64rem;
+            letter-spacing: 0.06em;
+          }
+
+          .goal-btn-item {
+            padding: 0.9rem;
+            align-items: flex-start;
+          }
+
+          .goal-btn-icon {
+            font-size: 1.35rem;
+            margin-right: 0.8rem;
+          }
+
+          .goal-title-txt {
+            font-size: 0.86rem;
+          }
+
+          .goal-arrow {
+            display: none;
+          }
+
+          .workbench-layout {
+            padding: 0.6rem;
+          }
+
+          .sidebar-card,
+          .chat-container-card,
+          .tabbed-container-card {
+            padding: 1rem;
+          }
+
+          .chat-container-card,
+          .tabbed-container-card {
+            padding: 0;
+          }
+
+          .chat-header,
+          .chat-input-wrapper,
+          .tabs-header {
+            padding: 0.85rem;
+          }
+
+          .messages-scroller,
+          .tab-content-scroller {
+            padding: 0.85rem;
+          }
+
+          .message-avatar {
+            width: 34px;
+            height: 34px;
+            font-size: 1rem;
+          }
+
+          .bubble-text,
+          .card-body-text {
+            font-size: 0.82rem;
+          }
+
+          .chat-textarea {
+            min-height: 88px;
+            font-size: 0.86rem;
+          }
+
+          .input-toolbar {
+            right: 1.35rem;
+            bottom: 1.3rem;
+          }
+
+          .btn-send-message {
+            width: 34px;
+            min-height: 0;
+            height: 34px;
+          }
+
+          .tabs-header {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+          }
         }
 
         @keyframes spin {

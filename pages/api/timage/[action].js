@@ -38,6 +38,7 @@ export default async function handler(req, res) {
 
       const CREDITS_PER_IMAGE = 5;
       let currentCredits = 0;
+      let isNewUser = false;
 
       const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
@@ -57,6 +58,7 @@ export default async function handler(req, res) {
           [email, 'gift', 30, 30, 'New user welcome bonus']
         );
         currentCredits = 30;
+        isNewUser = true;
       }
 
       const apiKey = process.env.VECTORENGINE_API_KEY;
@@ -72,7 +74,8 @@ export default async function handler(req, res) {
         apiKey,
         apiBase,
         model,
-        credits: currentCredits
+        credits: currentCredits,
+        isNewUser
       });
     }
 

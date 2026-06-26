@@ -26,7 +26,7 @@ export default async function handler(req, res) {
 
     // 1. 获取当前会话状态，检查完整度是否达标
     const sessions = await query(
-      `SELECT completeness, status FROM diagnosis_sessions WHERE id = ? AND email = ?`,
+      `SELECT completeness, status FROM diagnosis_sessions WHERE id = ? AND email = ? AND COALESCE(is_hidden, FALSE) = FALSE`,
       [sessionId, email]
     );
 
@@ -188,12 +188,22 @@ ${JSON.stringify(knownFacts, null, 2)}
       };
     }
 
-    // 3. 将诊断报告保存进数据库 (使用 REPLACE 方式插入或更新)
+    // 3. 将诊断报告保存进数据库
     await query(
-      `REPLACE INTO diagnosis_reports (
+      `INSERT INTO diagnosis_reports (
         session_id, summary, maturity_score, pain_points, opportunity_map,
         recommended_agents, roadmap_30_60_90, risks, data_requirements, next_actions
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        summary = VALUES(summary),
+        maturity_score = VALUES(maturity_score),
+        pain_points = VALUES(pain_points),
+        opportunity_map = VALUES(opportunity_map),
+        recommended_agents = VALUES(recommended_agents),
+        roadmap_30_60_90 = VALUES(roadmap_30_60_90),
+        risks = VALUES(risks),
+        data_requirements = VALUES(data_requirements),
+        next_actions = VALUES(next_actions)`,
       [
         sessionId,
         reportObj.summary || '',
