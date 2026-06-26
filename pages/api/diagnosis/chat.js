@@ -1,14 +1,91 @@
 import { query } from '../../../lib/db';
 import { extractDiagnosisProfile, extractDiagnosisProfileLocally } from '../../../lib/diagnosis_extract';
+import { delay, formatErrorForLog, isTransientNetworkError } from '../../../lib/safe_error';
 import axios from 'axios';
 import https from 'https';
 
 function runAfterResponse(res, task) {
   res.on('finish', () => {
     task().catch((error) => {
-      console.error('[Diagnosis Background Task Error]:', error);
+      console.error('[Diagnosis Background Task Error]:', formatErrorForLog(error));
     });
   });
+}
+
+function handleStreamLine(line, res, replyRef) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.includes('[DONE]')) {
+    return;
+  }
+  if (trimmed.startsWith('data:')) {
+    try {
+      const dataStr = trimmed.slice(5).trim();
+      const json = JSON.parse(dataStr);
+      const content = json.choices?.[0]?.delta?.content || '';
+      if (content) {
+        replyRef.value += content;
+        res.write(content);
+      }
+    } catch (e) {
+      console.warn('[Chat Stream Parse Warning]:', formatErrorForLog(e));
+    }
+  }
+}
+
+function persistAgentMessage(sessionId, content, label) {
+  query(
+    `INSERT INTO diagnosis_messages (session_id, sender, content) VALUES (?, ?, ?)`,
+    [sessionId, 'agent', content]
+  ).catch(error => {
+    console.error(`[${label}]`, formatErrorForLog(error));
+  });
+}
+
+async function postStreamWithRetry(url, data, config, maxAttempts = 1) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await axios.post(url, data, config);
+    } catch (error) {
+      lastError = error;
+      const canRetry = attempt < maxAttempts && isTransientNetworkError(error);
+      console.warn(`[Chat API Request] Attempt ${attempt} failed${canRetry ? ', retrying' : ''}:`, formatErrorForLog(error));
+      if (!canRetry) break;
+      await delay(600 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+function buildLocalOpportunityReply(message, knownFacts = {}) {
+  const text = message || '';
+  const factsHint = [
+    knownFacts.basicInfo,
+    knownFacts.businessGoal,
+    knownFacts.currentProcess,
+    knownFacts.dataFoundation,
+    knownFacts.techFoundation
+  ].filter(Boolean).join('；');
+
+  let judgment = '我先按老板视角判断：这个问题值得继续挖，因为它很可能不是“单纯上 AI”，而是先找到哪个环节能省人、省时间或少丢单。';
+  if (/(报价|方案|行程|线路|价格)/.test(text + factsHint)) {
+    judgment = '我先判断：这更像“报价/方案效率”机会。它直接影响响应速度和成交率，通常比先做大而全系统更容易让老板看到回报。';
+  } else if (/(客户|销售|跟进|线索|转化|成交)/.test(text + factsHint)) {
+    judgment = '我先判断：这更像“客户转化”机会。重点不是让 AI 聊天，而是减少漏跟进、缩短响应时间、把高意向客户优先推出来。';
+  } else if (/(表|录入|整理|重复|人工|浪费时间|不愿意)/.test(text + factsHint)) {
+    judgment = '我先判断：这更像“重复人工成本”机会。老板关心的不是员工愿不愿意填，而是这件事能不能少填、自动带出、少返工。';
+  } else if (/(数据|知识库|资料|文档|系统)/.test(text + factsHint)) {
+    judgment = '我先判断：这更像“数据和知识复用”机会。先别急着做复杂 Agent，最好先找一个能把已有资料用起来的小场景。';
+  }
+
+  return `${judgment}
+
+为了快速判断值不值得做，先只确认一个问题：这件事现在最直接损失的是哪一种？
+
+1. 人工时间太多
+2. 客户等太久或流失
+3. 报价/方案质量不稳定
+4. 数据分散，后续没法复用`;
 }
 
 export default async function handler(req, res) {
@@ -35,6 +112,19 @@ export default async function handler(req, res) {
 
   // 第一时间写回开场轻量 Chunk，打消等待焦虑
   res.write("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n");
+
+  let hardTimeoutTimer = null;
+  const safeEndWithFallback = async (text) => {
+    if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
+    if (!res.writableEnded) {
+      handleFallback(res, sessionId, text);
+    }
+  };
+
+  hardTimeoutTimer = setTimeout(() => {
+    safeEndWithFallback("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n")
+      .catch(error => console.error('[Chat Hard Timeout Fallback Error]:', formatErrorForLog(error)));
+  }, 35000);
 
   try {
     // 1. 获取当前会话状态，判断是否存在
@@ -141,7 +231,7 @@ ${conversationContext}
     let stream;
     try {
       // 发起大模型流式请求
-      const response = await axios.post(
+      const response = await postStreamWithRetry(
         `${API_BASE}/chat/completions`,
         {
           model: MODEL,
@@ -157,19 +247,28 @@ ${conversationContext}
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${API_KEY}`
           },
-          timeout: 15000, // 设置 15 秒超时控制
+          timeout: 8000,
           responseType: 'stream',
           httpsAgent: new https.Agent({ rejectUnauthorized: false })
         }
       );
       stream = response.data;
     } catch (apiErr) {
-      console.error('[Chat API Request Error]:', apiErr);
-      throw apiErr;
+      console.error('[Chat API Request Error]:', formatErrorForLog(apiErr));
+      const localReply = buildLocalOpportunityReply(message, currentFacts);
+      res.write(localReply);
+      res.end();
+      persistAgentMessage(
+        sessionId,
+        "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + localReply,
+        'Chat Local Reply Save Error'
+      );
+      return;
     }
 
     let hasReceivedData = false;
     let fullReply = '';
+    const replyRef = { value: '' };
 
     // 设置 10 秒无数据返回的超时兜底
     const timeoutTimer = setTimeout(() => {
@@ -178,16 +277,30 @@ ${conversationContext}
         if (stream) {
           stream.destroy(new Error('timeout'));
         } else {
-          handleFallback(res, sessionId, '我先记录下这些信息，正在深度为您分析中...\n\n');
+          safeEndWithFallback("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + buildLocalOpportunityReply(message, currentFacts));
         }
       }
     }, 10000);
 
     let buffer = '';
+    let idleTimer = null;
+    const resetIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        if (!res.writableEnded) {
+          console.warn('[Chat Stream Idle Timeout] No chunk received after stream started, triggering fallback');
+          if (stream) {
+            stream.destroy(new Error('idle timeout'));
+          }
+        }
+      }, 12000);
+    };
+    resetIdleTimer();
 
     stream.on('data', chunk => {
       hasReceivedData = true;
       clearTimeout(timeoutTimer);
+      resetIdleTimer();
 
       buffer += chunk.toString();
       let boundary = buffer.lastIndexOf('\n');
@@ -201,56 +314,40 @@ ${conversationContext}
 
       const lines = completeData.split('\n');
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.includes('[DONE]')) {
-          continue;
-        }
-        if (trimmed.startsWith('data:')) {
-          try {
-            const dataStr = trimmed.slice(5).trim();
-            const json = JSON.parse(dataStr);
-            const content = json.choices?.[0]?.delta?.content || '';
-            if (content) {
-              fullReply += content;
-              res.write(content);
-            }
-          } catch (e) {
-            // chunk 截断由于有了缓冲，不应抛错。如有格式异常，静默忽略
-          }
-        }
+        handleStreamLine(line, res, replyRef);
       }
+      fullReply = replyRef.value;
     });
 
     stream.on('end', async () => {
       clearTimeout(timeoutTimer);
-      const finalDBReply = "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + fullReply;
-      if (fullReply.trim()) {
-        try {
-          await query(
-            `INSERT INTO diagnosis_messages (session_id, sender, content) VALUES (?, ?, ?)`,
-            [sessionId, 'agent', finalDBReply]
-          );
-        } catch (e) {
-          console.error('[Chat Save Error]:', e);
-        }
+      if (idleTimer) clearTimeout(idleTimer);
+      if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
+      if (buffer.trim()) {
+        handleStreamLine(buffer, res, replyRef);
+        fullReply = replyRef.value;
+        buffer = '';
       }
+      const finalDBReply = "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + fullReply;
       res.end();
+      if (fullReply.trim()) {
+        persistAgentMessage(sessionId, finalDBReply, 'Chat Save Error');
+      }
     });
 
     stream.on('error', async (err) => {
       clearTimeout(timeoutTimer);
-      console.error('[Chat Stream Event Error]:', err);
-      await handleFallback(res, sessionId, "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + fullReply);
+      if (idleTimer) clearTimeout(idleTimer);
+      console.error('[Chat Stream Event Error]:', formatErrorForLog(err));
+      await safeEndWithFallback("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + (fullReply || buildLocalOpportunityReply(message, currentFacts)));
     });
 
   } catch (error) {
-    console.error('Diagnosis chat API error:', error);
+    console.error('Diagnosis chat API error:', formatErrorForLog(error));
     try {
-      if (!res.writableEnded) {
-        await handleFallback(res, sessionId, "我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n");
-      }
+      await safeEndWithFallback("我先记下这个场景，马上帮您判断它更像省钱点、增收点，还是适合先试的小切口...\n\n" + buildLocalOpportunityReply(message, {}));
     } catch (fallbackErr) {
-      console.error('Failed to execute fallback:', fallbackErr);
+      console.error('Failed to execute fallback:', formatErrorForLog(fallbackErr));
       if (!res.writableEnded) {
         res.end();
       }
@@ -271,13 +368,6 @@ async function handleFallback(res, sessionId, currentAccumulated) {
     res.write(remaining);
   }
 
-  try {
-    await query(
-      `INSERT INTO diagnosis_messages (session_id, sender, content) VALUES (?, ?, ?)`,
-      [sessionId, 'agent', responseText]
-    );
-  } catch (e) {
-    console.error('[Chat Persist Fallback Error]:', e);
-  }
   res.end();
+  persistAgentMessage(sessionId, responseText, 'Chat Persist Fallback Error');
 }

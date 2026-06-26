@@ -1,4 +1,5 @@
 import { query } from '../../../lib/db';
+import { formatErrorForLog } from '../../../lib/safe_error';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -225,7 +226,7 @@ ${JSON.stringify(knownFacts, null, 2)}
       report: reportObj
     });
   } catch (error) {
-    console.error('Generate diagnosis report API error:', error);
+    console.error('Generate diagnosis report API error:', formatErrorForLog(error));
     return res.status(500).json({ error: '生成报告失败，请稍后重试' });
   }
 }
