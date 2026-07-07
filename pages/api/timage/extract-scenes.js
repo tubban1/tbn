@@ -199,6 +199,12 @@ Format:
     }
 
     console.error('[Extract Scenes] Error:', error.message);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        error: error.message
+      });
+    }
     if (error.response) {
       console.error('[Extract Scenes] API Error Payload:', error.response.data);
       return res.status(error.response.status || 500).json({

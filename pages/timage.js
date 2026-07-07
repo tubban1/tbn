@@ -426,6 +426,57 @@ export default function TImage() {
 
   const isProcessingRef = useRef(false);
 
+  const waitForImageTask = async (taskId, slotIndex = 0) => {
+    const maxPolls = 180;
+    for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
+      await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
+
+      const statusRes = await axios.post('/api/timage/task-status', { taskId, email });
+      const task = statusRes.data?.task;
+      if (!task) {
+        throw new Error('没有查询到图片生成任务');
+      }
+
+      if (task.status === 'completed') {
+        const result = task.result || {};
+        return {
+          displayUrl: result.freeimageUrl,
+          generatedUrl: result.originalUrl || result.freeimageUrl,
+          drawImageId: result.drawImageId
+        };
+      }
+
+      if (task.status === 'failed') {
+        throw new Error(task.error || '图片生成失败，已自动退回本次额度');
+      }
+    }
+
+    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果');
+  };
+
+  const createImageTask = async ({ promptText, promptEn, promptZh, description, slotIndex = 0 }) => {
+    const taskRes = await axios.post('/api/timage/create-task', {
+      prompt: promptText,
+      prompt_en: promptEn || promptText,
+      prompt_zh: promptZh || promptText,
+      description,
+      size,
+      quality,
+      format,
+      email
+    });
+
+    if (!taskRes.data?.success || !taskRes.data?.taskId) {
+      throw new Error(taskRes.data?.error || '图片任务创建失败');
+    }
+
+    if (typeof taskRes.data.credits === 'number') {
+      setCredits(taskRes.data.credits);
+    }
+
+    return waitForImageTask(taskRes.data.taskId, slotIndex);
+  };
+
   const handleGenerate = async () => {
     if (isProcessingRef.current) return;
 
@@ -490,15 +541,21 @@ export default function TImage() {
           try {
             let res;
             if (!uploadedImages.some(img => img.file?.type?.startsWith('image/'))) {
-              res = await axios.post('/api/timage/generate', {
-                prompt: p,
-                prompt_en: opt.prompt,
-                prompt_zh: opt.promptZh,
-                size,
-                quality,
-                format,
-                email
+              const item = await createImageTask({
+                promptText: p,
+                promptEn: opt.prompt,
+                promptZh: opt.promptZh,
+                slotIndex: arrayIndex
               });
+              setCurrentSessionOutputs(prev => {
+                const updated = [...prev];
+                updated[arrayIndex] = item;
+                return updated;
+              });
+
+              if (email) loadHistory(email);
+              results.push(item);
+              continue;
             } else {
               const formData = new FormData();
               formData.append('prompt', p);
@@ -576,27 +633,18 @@ export default function TImage() {
         // SINGLE GENERATION FLOW
         if (!uploadedImages.some(img => img.file?.type?.startsWith('image/'))) {
           setCurrentSessionOutputs([null]); // Trigger loading animation
-          const response = await axios.post('/api/timage/generate', {
-            prompt,
-            prompt_en: prompt,
-            size,
-            quality,
-            format,
-            email
+          const out = await createImageTask({
+            promptText: prompt,
+            promptEn: prompt,
+            promptZh: prompt,
+            slotIndex: 0
           });
 
-          if (response.data?.success) {
-            const out = {
-              displayUrl: response.data.freeimageUrl,
-              generatedUrl: response.data.originalUrl || response.data.freeimageUrl
-            };
-            setCurrentSessionOutputs([out]);
-            setGeneratedUrl(out.generatedUrl);
-            setDisplayUrl(out.displayUrl);
-            setCredits(response.data.credits);
+          setCurrentSessionOutputs([out]);
+          setGeneratedUrl(out.generatedUrl);
+          setDisplayUrl(out.displayUrl);
 
-            if (email) loadHistory(email);
-          }
+          if (email) loadHistory(email);
         } else {
           // Image-to-Image / AI旅拍 (Single image output)
           const formData = new FormData();

@@ -5,6 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "render-worker": "node scripts/render_image_worker.cjs",
     "supabase:init": "node scripts/supabase_schema.cjs",
     "supabase:migrate": "node scripts/migrate_to_supabase.cjs"
   },

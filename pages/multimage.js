@@ -336,6 +336,42 @@ export default function MultiImage() {
 
   const isGeneratingRef = useRef(false);
 
+  const waitForImageTask = async (taskId) => {
+    const maxPolls = 180;
+    for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
+      await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
+      const statusRes = await axios.post('/api/timage/task-status', { taskId, email });
+      const task = statusRes.data?.task;
+      if (!task) throw new Error('没有查询到图片生成任务');
+      if (task.status === 'completed') {
+        const result = task.result || {};
+        return result.originalUrl || result.freeimageUrl;
+      }
+      if (task.status === 'failed') {
+        throw new Error(task.error || '图片生成失败，已自动退回本次额度');
+      }
+    }
+    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果');
+  };
+
+  const createImageTask = async (scene) => {
+    const taskRes = await axios.post('/api/timage/create-task', {
+      prompt: scene.prompt,
+      prompt_en: scene.prompt,
+      description: scene.description,
+      size: unifiedSize,
+      email
+    });
+
+    if (!taskRes.data?.success || !taskRes.data?.taskId) {
+      throw new Error(taskRes.data?.error || '图片任务创建失败');
+    }
+    if (typeof taskRes.data.credits === 'number') {
+      setCredits(taskRes.data.credits);
+    }
+    return waitForImageTask(taskRes.data.taskId);
+  };
+
   const handleGenerateAll = async () => {
     if (scenes.length === 0) return;
     if (isGeneratingRef.current) return;
@@ -391,18 +427,8 @@ export default function MultiImage() {
             updateResult(idx, 'error');
           }
         } else {
-          const res = await axios.post('/api/timage/generate', {
-            prompt: scene.prompt,
-            prompt_en: scene.prompt,
-            description: scene.description,
-            size: unifiedSize,
-            email
-          });
-          if (res.data?.success) {
-            updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
-          } else {
-            updateResult(idx, 'error');
-          }
+          const imageUrl = await createImageTask(scene);
+          updateResult(idx, imageUrl);
         }
       } catch (err) {
         updateResult(idx, 'error');
@@ -460,16 +486,8 @@ export default function MultiImage() {
           updateResult(idx, 'error');
         }
       } else {
-        const res = await axios.post('/api/timage/generate', {
-          prompt: scene.prompt,
-          size: unifiedSize,
-          email
-        });
-        if (res.data?.success) {
-          updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
-        } else {
-          updateResult(idx, 'error');
-        }
+        const imageUrl = await createImageTask(scene);
+        updateResult(idx, imageUrl);
       }
     } catch (err) {
       updateResult(idx, 'error');

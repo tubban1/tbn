@@ -98,6 +98,25 @@ CREATE TABLE IF NOT EXISTS temp_image_data (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS image_generation_tasks (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  task_type TEXT NOT NULL DEFAULT 'text-to-image',
+  status TEXT NOT NULL DEFAULT 'pending',
+  request_payload TEXT NOT NULL,
+  result_payload TEXT NULL,
+  error_message TEXT NULL,
+  credits_cost INTEGER NOT NULL DEFAULT 0,
+  draw_image_id INTEGER NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  locked_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_image_generation_tasks_email ON image_generation_tasks(email);
+CREATE INDEX IF NOT EXISTS idx_image_generation_tasks_status ON image_generation_tasks(status, created_at);
+
 CREATE TABLE IF NOT EXISTS diagnosis_sessions (
   id TEXT PRIMARY KEY,
   email TEXT NULL,
@@ -167,6 +186,11 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS set_diagnosis_profiles_updated_at ON diagnosis_profiles;
 CREATE TRIGGER set_diagnosis_profiles_updated_at
 BEFORE UPDATE ON diagnosis_profiles
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_image_generation_tasks_updated_at ON image_generation_tasks;
+CREATE TRIGGER set_image_generation_tasks_updated_at
+BEFORE UPDATE ON image_generation_tasks
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 `;
 
