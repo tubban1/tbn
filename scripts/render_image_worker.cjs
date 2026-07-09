@@ -57,6 +57,15 @@ function sanitizeFilename(filename) {
     .replace(/[^a-zA-Z0-9._-]/g, '_') || 'image.png';
 }
 
+function hasAliyunConfig() {
+  return Boolean(
+    process.env.ALIYUN_OSS_REGION &&
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID &&
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET &&
+    process.env.ALIYUN_OSS_BUCKET
+  );
+}
+
 async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS image_generation_tasks (
@@ -129,7 +138,20 @@ async function uploadToAliyun(base64Data, filename, mimeType) {
 
 async function uploadToFreeimageHost(base64Data, filename, mimeType) {
   const apiKey = process.env.FREEIMAGE_HOST_API_KEY;
+  const uploadProvider = (process.env.IMAGE_UPLOAD_PROVIDER || '').toLowerCase();
+  const shouldPreferAliyun = uploadProvider === 'aliyun' || (!uploadProvider && hasAliyunConfig());
   let freeimageError = null;
+
+  if (shouldPreferAliyun) {
+    try {
+      console.log('[Render Image Worker] Uploading image to Aliyun OSS...');
+      const result = await uploadToAliyun(base64Data, filename, mimeType);
+      return { ...result, isPermanent: true };
+    } catch (aliyunFirstError) {
+      console.warn('[Render Image Worker] Aliyun upload failed, trying Freeimage fallback:', aliyunFirstError.message);
+      freeimageError = aliyunFirstError;
+    }
+  }
 
   if (apiKey) {
     try {
@@ -169,6 +191,9 @@ async function uploadToFreeimageHost(base64Data, filename, mimeType) {
   }
 
   try {
+    if (shouldPreferAliyun) {
+      throw freeimageError;
+    }
     console.warn('[Render Image Worker] Trying Aliyun OSS fallback...');
     const result = await uploadToAliyun(base64Data, filename, mimeType);
     return { ...result, isPermanent: true };
@@ -209,13 +234,20 @@ async function generateImage(payload) {
   if (payload.size) requestPayload.size = payload.size;
   if (payload.quality) requestPayload.quality = payload.quality;
 
+  const modelTimeout = parseInt(process.env.IMAGE_WORKER_MODEL_TIMEOUT || '900000', 10);
+  console.log('[Render Image Worker] Calling VectorEngine image model:', {
+    model,
+    size: payload.size || 'omitted',
+    timeoutMs: modelTimeout
+  });
+
   const response = await axios.post(`${apiBase}/images/generations`, requestPayload, {
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    timeout: parseInt(process.env.IMAGE_WORKER_MODEL_TIMEOUT || '420000', 10)
+    timeout: modelTimeout
   });
 
   const firstImage = response.data?.data?.[0];
@@ -292,7 +324,10 @@ async function saveCompletedTask(task, payload, imageResult) {
 }
 
 async function failTask(task, error) {
-  const message = error?.response?.data?.error?.message || error?.message || 'Image generation failed';
+  let message = error?.response?.data?.error?.message || error?.message || 'Image generation failed';
+  if (error?.code === 'ECONNABORTED' || /timeout of \d+ms exceeded/i.test(message)) {
+    message = '图片模型生成超时，本次额度已自动退回。请降低图片尺寸或稍后重试。';
+  }
   console.error(`[Render Image Worker] Task ${task.id} failed:`, message);
 
   await pool.query('UPDATE user_credits SET credits = credits + $1 WHERE email = $2', [

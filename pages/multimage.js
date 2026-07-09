@@ -340,7 +340,7 @@ export default function MultiImage() {
   const isGeneratingRef = useRef(false);
 
   const waitForImageTask = async (taskId) => {
-    const maxPolls = 180;
+    const maxPolls = 420;
     for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
       await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
       const statusRes = await axios.post('/api/timage/task-status', { taskId, email, password });
@@ -354,7 +354,7 @@ export default function MultiImage() {
         throw new Error(task.error || '图片生成失败，已自动退回本次额度');
       }
     }
-    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果');
+    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果。');
   };
 
   const createImageTask = async (scene) => {

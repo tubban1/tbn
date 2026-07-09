@@ -435,7 +435,7 @@ export default function TImage() {
   const isProcessingRef = useRef(false);
 
   const waitForImageTask = async (taskId, slotIndex = 0) => {
-    const maxPolls = 180;
+    const maxPolls = 420;
     for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
       await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
 
@@ -459,7 +459,7 @@ export default function TImage() {
       }
     }
 
-    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果');
+    throw new Error('图片生成时间较长，请稍后在历史记录中查看结果。');
   };
 
   const createImageTask = async ({ promptText, promptEn, promptZh, description, slotIndex = 0 }) => {
