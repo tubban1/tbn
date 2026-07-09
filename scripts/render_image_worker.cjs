@@ -44,6 +44,10 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000
 });
 
+pool.on('error', (error) => {
+  console.error('[Render Image Worker] Postgres pool error:', error.message);
+});
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function sanitizeFilename(filename) {
@@ -125,40 +129,57 @@ async function uploadToAliyun(base64Data, filename, mimeType) {
 
 async function uploadToFreeimageHost(base64Data, filename, mimeType) {
   const apiKey = process.env.FREEIMAGE_HOST_API_KEY;
-  if (!apiKey) {
-    return uploadToAliyun(base64Data, filename, mimeType);
+  let freeimageError = null;
+
+  if (apiKey) {
+    try {
+      const formData = new FormData();
+      formData.append('key', apiKey);
+      formData.append('action', 'upload');
+      formData.append('format', 'json');
+      formData.append('source', Buffer.from(base64Data, 'base64'), {
+        filename: filename || 'image.png',
+        contentType: mimeType || 'image/png'
+      });
+
+      const response = await axios.post('https://freeimage.host/api/1/upload', formData, {
+        headers: {
+          ...formData.getHeaders(),
+          'User-Agent': 'Mozilla/5.0'
+        },
+        timeout: 30000
+      });
+
+      if (response.data?.status_code === 200 && response.data?.success) {
+        const imageData = response.data.image;
+        return {
+          url: imageData.url,
+          displayUrl: imageData.display_url || imageData.url,
+          isPermanent: true
+        };
+      }
+
+      throw new Error(response.data?.status_txt || 'Freeimage upload failed');
+    } catch (error) {
+      freeimageError = error;
+      console.warn('[Render Image Worker] Freeimage upload failed:', error.message);
+    }
+  } else {
+    freeimageError = new Error('FREEIMAGE_HOST_API_KEY is not configured');
   }
 
   try {
-    const formData = new FormData();
-    formData.append('key', apiKey);
-    formData.append('action', 'upload');
-    formData.append('format', 'json');
-    formData.append('source', Buffer.from(base64Data, 'base64'), {
-      filename: filename || 'image.png',
-      contentType: mimeType || 'image/png'
-    });
-
-    const response = await axios.post('https://freeimage.host/api/1/upload', formData, {
-      headers: {
-        ...formData.getHeaders(),
-        'User-Agent': 'Mozilla/5.0'
-      },
-      timeout: 30000
-    });
-
-    if (response.data?.status_code === 200 && response.data?.success) {
-      const imageData = response.data.image;
-      return {
-        url: imageData.url,
-        displayUrl: imageData.display_url || imageData.url
-      };
-    }
-
-    throw new Error(response.data?.status_txt || 'Freeimage upload failed');
-  } catch (error) {
-    console.warn('[Render Image Worker] Freeimage upload failed, trying Aliyun:', error.message);
-    return uploadToAliyun(base64Data, filename, mimeType);
+    console.warn('[Render Image Worker] Trying Aliyun OSS fallback...');
+    const result = await uploadToAliyun(base64Data, filename, mimeType);
+    return { ...result, isPermanent: true };
+  } catch (aliyunError) {
+    console.warn('[Render Image Worker] Aliyun upload failed, using temporary base64 fallback:', aliyunError.message);
+    return {
+      url: `data:${mimeType || 'image/png'};base64,${base64Data}`,
+      displayUrl: `data:${mimeType || 'image/png'};base64,${base64Data}`,
+      isPermanent: false,
+      uploadError: `${freeimageError?.message || 'Freeimage unavailable'}; ${aliyunError.message}`
+    };
   }
 }
 
@@ -220,6 +241,10 @@ async function generateImage(payload) {
 }
 
 async function saveCompletedTask(task, payload, imageResult) {
+  const placeholderUrl = 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Generated';
+  const dbGeneratedUrl = imageResult.isPermanent === false ? placeholderUrl : imageResult.url;
+  const dbDisplayUrl = imageResult.isPermanent === false ? placeholderUrl : imageResult.displayUrl;
+
   const drawResult = await pool.query(
     `INSERT INTO draw_images
       (email, sketch_url, generated_url, display_url, style, prompt, prompt_en, prompt_zh, description)
@@ -228,8 +253,8 @@ async function saveCompletedTask(task, payload, imageResult) {
     [
       task.email,
       'text-to-image',
-      imageResult.url,
-      imageResult.displayUrl,
+      dbGeneratedUrl,
+      dbDisplayUrl,
       'text',
       payload.prompt,
       payload.prompt_en || payload.prompt,
@@ -244,7 +269,9 @@ async function saveCompletedTask(task, payload, imageResult) {
     freeimageUrl: imageResult.displayUrl,
     drawImageId,
     prompt: payload.prompt,
-    size: payload.size || null
+    size: payload.size || null,
+    isTemporary: imageResult.isPermanent === false,
+    uploadError: imageResult.uploadError || null
   };
 
   await pool.query(
@@ -326,6 +353,24 @@ process.on('SIGTERM', async () => {
   console.log('[Render Image Worker] SIGTERM received, closing pool.');
   await pool.end();
   process.exit(0);
+});
+
+process.on('uncaughtException', (error) => {
+  if (error?.code === 'EPIPE') {
+    console.warn('[Render Image Worker] Ignored socket EPIPE:', error.message);
+    return;
+  }
+  console.error('[Render Image Worker] Uncaught exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  if (error?.code === 'EPIPE') {
+    console.warn('[Render Image Worker] Ignored unhandled EPIPE:', error.message);
+    return;
+  }
+  console.error('[Render Image Worker] Unhandled rejection:', error);
 });
 
 workerLoop();
