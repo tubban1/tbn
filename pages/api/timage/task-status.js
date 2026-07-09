@@ -16,13 +16,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { taskId, email } = req.body || {};
-  if (!taskId || !email) {
-    return res.status(400).json({ success: false, error: 'taskId and email are required' });
+  const { taskId, email, password } = req.body || {};
+  if (!taskId || !email || !password) {
+    return res.status(401).json({ success: false, error: '请先完成账号验证' });
   }
 
   try {
     await ensureImageTaskSchema();
+    const userRows = await query('SELECT password FROM user_credits WHERE email = ? LIMIT 1', [email]);
+    if (!userRows || userRows.length === 0 || userRows[0].password !== password) {
+      return res.status(401).json({ success: false, error: '账号验证失败，请重新登录' });
+    }
+
     const rows = await query(
       `SELECT id, email, status, result_payload, error_message, credits_cost, draw_image_id, created_at, updated_at
        FROM image_generation_tasks

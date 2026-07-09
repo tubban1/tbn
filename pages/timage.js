@@ -197,6 +197,9 @@ export default function TImage() {
       }
     } catch (err) {
       console.error(err);
+      if (err.response?.status === 401) {
+        handleLogout();
+      }
       setErrorMessage(err.response?.data?.error || '登录失败，请检查数据库配置或网络');
     } finally {
       setIsCheckingEmail(false);
@@ -431,7 +434,7 @@ export default function TImage() {
     for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
       await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
 
-      const statusRes = await axios.post('/api/timage/task-status', { taskId, email });
+      const statusRes = await axios.post('/api/timage/task-status', { taskId, email, password });
       const task = statusRes.data?.task;
       if (!task) {
         throw new Error('没有查询到图片生成任务');
@@ -463,7 +466,8 @@ export default function TImage() {
       size,
       quality,
       format,
-      email
+      email,
+      password
     });
 
     if (!taskRes.data?.success || !taskRes.data?.taskId) {
@@ -674,6 +678,9 @@ export default function TImage() {
       }
     } catch (error) {
       console.error(error);
+      if (error.response?.status === 401) {
+        handleLogout();
+      }
       const errDetail = error.response?.data?.error || error.message || 'AI 绘画引擎响应失败';
       setErrorMessage(errDetail);
       setCurrentSessionOutputs(prev => prev.map(item => item === null ? 'error' : item));

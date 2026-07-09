@@ -17,11 +17,12 @@ export default async function handler(req, res) {
     size,
     quality,
     format = 'jpeg',
-    email
+    email,
+    password
   } = req.body || {};
 
-  if (!email) {
-    return res.status(400).json({ success: false, error: 'Email is required' });
+  if (!email || !password) {
+    return res.status(401).json({ success: false, error: '请先完成账号验证' });
   }
 
   if (!prompt || typeof prompt !== 'string') {
@@ -35,8 +36,12 @@ export default async function handler(req, res) {
     const creditsCost = calculateCreditsForSize(size);
     let currentCredits = 0;
 
-    const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+    const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
     if (userRows && userRows.length > 0) {
+      if (userRows[0].password !== password) {
+        return res.status(401).json({ success: false, error: '账号验证失败，请重新登录' });
+      }
+
       const updateResult = await query(
         'UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?',
         [creditsCost, email, creditsCost]
@@ -56,7 +61,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'Insufficient credits', credits: 0 });
       }
       currentCredits = welcomeCredits - creditsCost;
-      await query('INSERT INTO user_credits (email, credits) VALUES (?, ?)', [email, currentCredits]);
+      await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, ?)', [email, password, currentCredits]);
       await query(
         'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
         [email, 'gift', welcomeCredits, welcomeCredits, 'New user welcome bonus']

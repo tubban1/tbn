@@ -97,6 +97,9 @@ export default function MultiImage() {
       }
     } catch (err) {
       console.error(err);
+      if (err.response?.status === 401) {
+        handleLogout();
+      }
       setErrorMessage(err.response?.data?.error || '登录失败，请检查数据库配置或网络');
     } finally {
       setIsCheckingEmail(false);
@@ -340,7 +343,7 @@ export default function MultiImage() {
     const maxPolls = 180;
     for (let pollIndex = 0; pollIndex < maxPolls; pollIndex++) {
       await new Promise(resolve => setTimeout(resolve, pollIndex === 0 ? 1200 : 3000));
-      const statusRes = await axios.post('/api/timage/task-status', { taskId, email });
+      const statusRes = await axios.post('/api/timage/task-status', { taskId, email, password });
       const task = statusRes.data?.task;
       if (!task) throw new Error('没有查询到图片生成任务');
       if (task.status === 'completed') {
@@ -360,7 +363,8 @@ export default function MultiImage() {
       prompt_en: scene.prompt,
       description: scene.description,
       size: unifiedSize,
-      email
+      email,
+      password
     });
 
     if (!taskRes.data?.success || !taskRes.data?.taskId) {
@@ -431,6 +435,10 @@ export default function MultiImage() {
           updateResult(idx, imageUrl);
         }
       } catch (err) {
+        if (err.response?.status === 401) {
+          handleLogout();
+          throw err;
+        }
         updateResult(idx, 'error');
       }
     });
@@ -490,6 +498,11 @@ export default function MultiImage() {
         updateResult(idx, imageUrl);
       }
     } catch (err) {
+      if (err.response?.status === 401) {
+        handleLogout();
+        setErrorMessage(err.response?.data?.error || '账号验证失败，请重新登录');
+        return;
+      }
       updateResult(idx, 'error');
     }
   };
