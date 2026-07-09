@@ -1,8 +1,15 @@
 import { query } from '../../../lib/db';
-import { ensureImageTaskSchema } from '../../../lib/image_task_schema';
 
 function parseJson(value, fallback = null) {
   if (!value) return fallback;
+  if (typeof value === 'string' && value.length > 1500000 && value.includes('data:image')) {
+    return {
+      originalUrl: null,
+      freeimageUrl: 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Generated',
+      isTemporary: true,
+      uploadError: '图片已生成，但临时图片数据过大，无法通过状态接口直接返回。请检查阿里云 OSS 上传配置。'
+    };
+  }
   if (typeof value === 'object') return value;
   try {
     return JSON.parse(value);
@@ -22,7 +29,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    await ensureImageTaskSchema();
     const userRows = await query('SELECT password FROM user_credits WHERE email = ? LIMIT 1', [email]);
     if (!userRows || userRows.length === 0 || userRows[0].password !== password) {
       return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
