@@ -18,14 +18,14 @@ export default async function handler(req, res) {
 
   const { taskId, email, password } = req.body || {};
   if (!taskId || !email || !password) {
-    return res.status(401).json({ success: false, error: '请先完成账号验证' });
+    return res.status(401).json({ success: false, error: '登录状态已过期，请重新输入邮箱和密码。' });
   }
 
   try {
     await ensureImageTaskSchema();
     const userRows = await query('SELECT password FROM user_credits WHERE email = ? LIMIT 1', [email]);
     if (!userRows || userRows.length === 0 || userRows[0].password !== password) {
-      return res.status(401).json({ success: false, error: '账号验证失败，请重新登录' });
+      return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
     }
 
     const rows = await query(

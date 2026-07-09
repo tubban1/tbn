@@ -379,6 +379,11 @@ export default function MultiImage() {
   const handleGenerateAll = async () => {
     if (scenes.length === 0) return;
     if (isGeneratingRef.current) return;
+    if (emailStatus !== 'verified' || !email || !password) {
+      handleLogout();
+      setErrorMessage('登录状态已过期，请重新输入邮箱和密码。');
+      return;
+    }
 
     let creditsPerImage = 5;
     if (unifiedSize) {
