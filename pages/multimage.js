@@ -391,7 +391,7 @@ export default function MultiImage() {
       return;
     }
 
-    let creditsPerImage = 5;
+    let creditsPerImage = 8;
     if (unifiedSize) {
       const [w, h] = unifiedSize.split('x').map(Number);
       if (w && h) {
@@ -750,7 +750,7 @@ export default function MultiImage() {
             <button onClick={handleGenerateAll} disabled={isGenerating} className="btn-generate">
               {(() => {
                 if (isGenerating) return '🌌 正在并行渲染所有分镜...';
-                let creditsPerImage = 5;
+                let creditsPerImage = 8;
                 if (unifiedSize) {
                   const [w, h] = unifiedSize.split('x').map(Number);
                   if (w && h) {

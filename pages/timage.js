@@ -502,7 +502,7 @@ export default function TImage() {
     // Determine if batch mode is active
     const isBatchMode = selectedOptimizedIndexes.length > 1;
 
-    let creditsPerImage = 5;
+    let creditsPerImage = 8;
     if (size) {
       const [w, h] = size.split('x').map(Number);
       if (w && h) {
@@ -1085,7 +1085,7 @@ export default function TImage() {
               >
                 {(() => {
                   if (isProcessing) return '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...';
-                  let creditsPerImage = 5;
+                  let creditsPerImage = 8;
                   if (size) {
                     const [w, h] = size.split('x').map(Number);
                     if (w && h) {

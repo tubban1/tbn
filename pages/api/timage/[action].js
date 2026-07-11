@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
       await ensureCreditsTables();
 
-      const CREDITS_PER_IMAGE = 5;
+      const CREDITS_PER_IMAGE = 8;
       let currentCredits = 0;
       let isNewUser = false;
 
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
 
       await ensureCreditsTables();
 
-      const CREDITS_PER_IMAGE = 5;
+      const CREDITS_PER_IMAGE = 8;
       const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
       if (!userRows || userRows.length === 0 || userRows[0].credits < CREDITS_PER_IMAGE) {
         return res.status(400).json({ success: false, error: 'Insufficient credits' });
@@ -384,7 +384,7 @@ export default async function handler(req, res) {
             'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
             [email, 'consume', -CREDITS_PER_IMAGE, email, 'Image generation']
           );
-          console.log(`[TImage] Transaction logged for 5 credits generation. Remaining roughly: ${finalCredits}`);
+          console.log(`[TImage] Transaction logged for ${CREDITS_PER_IMAGE} credits generation. Remaining roughly: ${finalCredits}`);
 
           console.log(`[TImage] Saving generated image record to DB for email: ${email}`);
           const actualPromptEn = prompt_en || prompt;
