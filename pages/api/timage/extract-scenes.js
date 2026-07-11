@@ -33,6 +33,42 @@ function extractJsonArray(rawContent) {
   return cleanedContent;
 }
 
+function normalizeTextForScenes(rawText) {
+  return (rawText || '')
+    .replace(/<DocumentContent>|<\/DocumentContent>/g, '')
+    .replace(/Please analyze[\s\S]*?extract scenes:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildFallbackScenes(rawText, targetSceneCount, unifiedStyle) {
+  const normalizedText = normalizeTextForScenes(rawText);
+  if (!normalizedText || normalizedText.length < 8) return [];
+
+  const chunks = normalizedText
+    .split(/(?<=[。！？!?；;])\s*|\n+/)
+    .map(item => item.trim())
+    .filter(item => item.length > 4);
+
+  const sourceChunks = chunks.length ? chunks : [normalizedText];
+  const scenes = [];
+  const styleText = unifiedStyle ? `，统一风格：${unifiedStyle}` : '';
+
+  for (let i = 0; i < targetSceneCount; i++) {
+    const start = Math.floor((i * sourceChunks.length) / targetSceneCount);
+    const end = Math.max(start + 1, Math.floor(((i + 1) * sourceChunks.length) / targetSceneCount));
+    const sceneText = sourceChunks.slice(start, end).join(' ').slice(0, 220);
+    const description = sceneText || normalizedText.slice(0, 120);
+
+    scenes.push({
+      description: description.length > 90 ? `${description.slice(0, 90)}...` : description,
+      prompt: `根据以下内容生成第 ${i + 1} 幕画面：${description}${styleText}。画面主体明确，构图完整，细节丰富，电影感光影，高质量商业视觉，适合图像生成。`
+    });
+  }
+
+  return scenes;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -139,57 +175,64 @@ Format:
     });
 
     let content = '';
-    const canUseTextProvider = userMessageContent.every(part => part.type === 'text');
-    if (canUseTextProvider) {
-      content = await generateText({
-        systemPrompt,
-        userPrompt: userMessageContent.map(part => part.text).join('\n\n'),
-        temperature: 0.7,
-        timeout: 60000
-      });
-    } else {
-      const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
-      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-      const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
-      if (!apiKey) {
-        return res.status(500).json({ success: false, error: 'VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured for multimodal scene extraction' });
-      }
-      const response = await axios.post(
-        `${apiBase}/chat/completions`,
-        {
-          model: promptModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessageContent }
-          ],
-          temperature: 0.7
-        },
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 60000,
-          httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        }
-      );
-      content = response.data?.choices?.[0]?.message?.content || '';
-    }
-
-    if (!content) {
-      throw new Error('No content returned from AI model');
-    }
-
     let scenes = [];
+    const fallbackTextSource = userMessageContent
+      .filter(part => part.type === 'text')
+      .map(part => part.text)
+      .join('\n\n');
+    const canUseTextProvider = userMessageContent.every(part => part.type === 'text');
     try {
+      if (canUseTextProvider) {
+        content = await generateText({
+          systemPrompt,
+          userPrompt: fallbackTextSource,
+          temperature: 0.7,
+          timeout: 8000
+        });
+      } else {
+        const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
+        const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+        const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
+        if (!apiKey) {
+          throw new Error('VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured for multimodal scene extraction');
+        }
+        const response = await axios.post(
+          `${apiBase}/chat/completions`,
+          {
+            model: promptModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessageContent }
+            ],
+            temperature: 0.7
+          },
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 8000,
+            httpsAgent: new https.Agent({ rejectUnauthorized: false })
+          }
+        );
+        content = response.data?.choices?.[0]?.message?.content || '';
+      }
+
+      if (!content) {
+        throw new Error('No content returned from AI model');
+      }
+
       const cleanedContent = extractJsonArray(content);
       scenes = JSON.parse(cleanedContent);
-    } catch (parseErr) {
-      console.error('[Extract Scenes] Failed to parse JSON. Content:', content);
-      const formatError = new Error('分镜解析失败：模型返回格式不是有效 JSON，请稍后重试或缩短文案。');
-      formatError.statusCode = 502;
-      throw formatError;
+    } catch (aiErr) {
+      console.warn('[Extract Scenes] AI extraction failed, using fallback scenes:', aiErr.message);
+      scenes = buildFallbackScenes(fallbackTextSource, targetSceneCount, unifiedStyle);
+      if (!scenes.length) {
+        const extractError = new Error('分镜解析失败：模型暂时不可用，请缩短文案或稍后重试。');
+        extractError.statusCode = 503;
+        throw extractError;
+      }
     }
 
     // Limit to user defined exact scenes if AI generates too many
