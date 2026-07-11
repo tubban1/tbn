@@ -572,10 +572,24 @@ export default function TImage() {
               formData.append('prompt_zh', opt.promptZh);
               formData.append('size', size);
               formData.append('email', email);
+              formData.append('password', password);
               uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
                 formData.append('image', img.file);
               });
               res = await axios.post('/api/timage/edit', formData);
+            }
+
+            if (res.data?.taskId) {
+              const item = await waitForImageTask(res.data.taskId, arrayIndex);
+              setCurrentSessionOutputs(prev => {
+                const updated = [...prev];
+                updated[arrayIndex] = item;
+                return updated;
+              });
+
+              if (email) loadHistory(email);
+              results.push(item);
+              continue;
             }
 
             if (res.data?.success) {
@@ -665,6 +679,7 @@ export default function TImage() {
           formData.append('prompt', prompt);
           formData.append('size', size);
           formData.append('email', email);
+          formData.append('password', password);
           uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
             formData.append('image', img.file);
           });
@@ -672,7 +687,14 @@ export default function TImage() {
           setCurrentSessionOutputs([null]); // Trigger loading animation
           const response = await axios.post('/api/timage/edit', formData);
 
-          if (response.data?.success) {
+          if (response.data?.taskId) {
+            const out = await waitForImageTask(response.data.taskId, 0);
+            setCurrentSessionOutputs([out]);
+            setGeneratedUrl(out.generatedUrl);
+            setDisplayUrl(out.displayUrl);
+
+            if (email) loadHistory(email);
+          } else if (response.data?.success) {
             const out = {
               displayUrl: response.data.freeimageUrl,
               generatedUrl: response.data.originalUrl || response.data.freeimageUrl

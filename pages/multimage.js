@@ -432,11 +432,15 @@ export default function MultiImage() {
           formData.append('prompt_en', scene.prompt);
           if (scene.description) formData.append('description', scene.description);
           if (email) formData.append('email', email);
+          if (password) formData.append('password', password);
           formData.append('size', unifiedSize);
           formData.append('image', baseImage);
 
           const res = await axios.post('/api/timage/edit', formData);
-          if (res.data?.success) {
+          if (res.data?.taskId) {
+            const imageUrl = await waitForImageTask(res.data.taskId);
+            updateResult(idx, imageUrl);
+          } else if (res.data?.success) {
             updateResult(idx, res.data.originalUrl || res.data.freeimageUrl);
           } else {
             updateResult(idx, 'error');
@@ -495,6 +499,7 @@ export default function MultiImage() {
         const formData = new FormData();
         formData.append('prompt', scene.prompt);
         if (email) formData.append('email', email);
+        if (password) formData.append('password', password);
         formData.append('size', unifiedSize);
         formData.append('image', baseImage);
 

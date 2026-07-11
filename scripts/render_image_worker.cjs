@@ -272,10 +272,80 @@ async function generateImage(payload) {
   throw new Error('Invalid image format returned from VectorEngine');
 }
 
+async function editImage(payload) {
+  const apiKey = process.env.VECTORENGINE_API_KEY;
+  if (!apiKey) {
+    throw new Error('VECTORENGINE_API_KEY is not configured');
+  }
+
+  if (!payload.images || !payload.images.length) {
+    throw new Error('No input images provided for edit task');
+  }
+
+  const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+  const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+  const formData = new FormData();
+  formData.append('model', model);
+  formData.append('prompt', payload.prompt);
+  if (payload.size) formData.append('size', payload.size);
+  formData.append('n', payload.n || '1');
+
+  payload.images.forEach((image, index) => {
+    formData.append('image', Buffer.from(image.base64, 'base64'), {
+      filename: image.filename || `image_${index}.png`,
+      contentType: image.mimeType || 'image/png'
+    });
+  });
+
+  const modelTimeout = parseInt(process.env.IMAGE_WORKER_MODEL_TIMEOUT || '900000', 10);
+  console.log('[Render Image Worker] Calling VectorEngine edit model:', {
+    model,
+    filesCount: payload.images.length,
+    size: payload.size || 'omitted',
+    timeoutMs: modelTimeout
+  });
+
+  const response = await axios.post(`${apiBase}/images/edits`, formData, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      ...formData.getHeaders()
+    },
+    timeout: modelTimeout
+  });
+
+  const firstImage = response.data?.data?.[0];
+  if (!firstImage) {
+    throw new Error('No edited image data returned from VectorEngine');
+  }
+
+  if (firstImage.b64_json) {
+    return uploadToFreeimageHost(firstImage.b64_json, `edited_${Date.now()}.png`, 'image/png');
+  }
+
+  if (firstImage.url) {
+    try {
+      return await processAndUploadImageUrl(firstImage.url, `edited_${Date.now()}.png`);
+    } catch (error) {
+      console.warn('[Render Image Worker] Permanent edit upload failed; using model URL:', error.message);
+      return { url: firstImage.url, displayUrl: firstImage.url };
+    }
+  }
+
+  throw new Error('Invalid edited image format returned from VectorEngine');
+}
+
 async function saveCompletedTask(task, payload, imageResult) {
   const placeholderUrl = 'https://placehold.co/1024x1024/2d3748/ffffff.png?text=Image+Generated';
   const dbGeneratedUrl = imageResult.isPermanent === false ? placeholderUrl : imageResult.url;
   const dbDisplayUrl = imageResult.isPermanent === false ? placeholderUrl : imageResult.displayUrl;
+  const isEditTask = task.task_type === 'image-edit';
+  const inputImage = payload.images?.[0];
+  const dbInputUrl = isEditTask && inputImage
+    ? `data:${inputImage.mimeType || 'image/png'};base64,${inputImage.base64}`
+    : 'text-to-image';
+  const dbSketchUrl = dbInputUrl.startsWith('data:') && dbInputUrl.length > 500
+    ? 'error:input_base64_too_long'
+    : dbInputUrl;
 
   const drawResult = await pool.query(
     `INSERT INTO draw_images
@@ -284,10 +354,10 @@ async function saveCompletedTask(task, payload, imageResult) {
      RETURNING id`,
     [
       task.email,
-      'text-to-image',
+      dbSketchUrl,
       dbGeneratedUrl,
       dbDisplayUrl,
-      'text',
+      isEditTask ? 'edit' : 'text',
       payload.prompt,
       payload.prompt_en || payload.prompt,
       payload.prompt_zh || payload.prompt,
@@ -309,7 +379,7 @@ async function saveCompletedTask(task, payload, imageResult) {
   await pool.query(
     `INSERT INTO credit_transactions (email, type, amount, balance_after, description)
      VALUES ($1, $2, $3, (SELECT credits FROM user_credits WHERE email = $1), $4)`,
-    [task.email, 'consume', -Number(task.credits_cost || 0), 'Image generation']
+    [task.email, 'consume', -Number(task.credits_cost || 0), isEditTask ? 'Image editing' : 'Image generation']
   );
 
   await pool.query(
@@ -327,6 +397,8 @@ async function failTask(task, error) {
   let message = error?.response?.data?.error?.message || error?.message || 'Image generation failed';
   if (error?.code === 'ECONNABORTED' || /timeout of \d+ms exceeded/i.test(message)) {
     message = '图片模型生成超时，本次额度已自动退回。请降低图片尺寸或稍后重试。';
+  } else if (error?.response?.status === 429 || /429|rate limit|too many/i.test(message)) {
+    message = '图片模型当前请求过多，本次额度已自动退回。请稍后重试或减少批量数量。';
   }
   console.error(`[Render Image Worker] Task ${task.id} failed:`, message);
 
@@ -347,7 +419,9 @@ async function failTask(task, error) {
 async function processTask(task) {
   const payload = JSON.parse(task.request_payload);
   console.log(`[Render Image Worker] Processing ${task.id} for ${task.email}`);
-  const imageResult = await generateImage(payload);
+  const imageResult = task.task_type === 'image-edit'
+    ? await editImage(payload)
+    : await generateImage(payload);
   await saveCompletedTask(task, payload, imageResult);
   console.log(`[Render Image Worker] Completed ${task.id}`);
 }
