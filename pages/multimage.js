@@ -295,6 +295,11 @@ export default function MultiImage() {
       setErrorMessage('请先输入邮箱登录，享受每日免费智能生图额度！');
       return;
     }
+    if (!email || !password) {
+      handleLogout();
+      setErrorMessage('登录状态已过期，请重新输入邮箱和密码。');
+      return;
+    }
     if (credits < 1) {
       setErrorMessage('额度不足！智能提取分镜需要 1 额度。请点击右上角“充值请联系”扫码充值！');
       return;
@@ -310,7 +315,8 @@ export default function MultiImage() {
         text: copyText,
         unifiedStyle: activeTab === 'text' ? unifiedStyle : null,
         sceneCount,
-        email
+        email,
+        password
       };
 
       if (activeTab === 'text' && documentData) {

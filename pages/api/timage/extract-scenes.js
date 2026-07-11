@@ -12,12 +12,33 @@ export const config = {
   },
 };
 
+function extractJsonArray(rawContent) {
+  if (!rawContent || typeof rawContent !== 'string') return '';
+  let cleanedContent = rawContent.trim();
+
+  if (cleanedContent.startsWith('```')) {
+    cleanedContent = cleanedContent.replace(/^```[a-zA-Z]*\n/, '');
+    cleanedContent = cleanedContent.replace(/\n```$/, '');
+    cleanedContent = cleanedContent.trim();
+  }
+
+  if (cleanedContent.startsWith('[')) return cleanedContent;
+
+  const start = cleanedContent.indexOf('[');
+  const end = cleanedContent.lastIndexOf(']');
+  if (start >= 0 && end > start) {
+    return cleanedContent.slice(start, end + 1).trim();
+  }
+
+  return cleanedContent;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const { text, unifiedStyle, sceneCount = 6, image, email, documentBase64, documentMimeType } = req.body;
+  const { text, unifiedStyle, sceneCount = 6, image, email, password, documentBase64, documentMimeType } = req.body;
   const targetSceneCount = Math.min(20, Math.max(2, parseInt(sceneCount) || 6));
 
   if ((!text || typeof text !== 'string') && !documentBase64) {
@@ -30,8 +51,16 @@ export default async function handler(req, res) {
     const CREDITS_PER_TEXT = 1;
 
     if (email) {
-      const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+      if (!password) {
+        return res.status(401).json({ success: false, error: '登录状态已过期，请重新输入邮箱和密码。' });
+      }
+
+      const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
+        if (userRows[0].password !== password) {
+          return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
+        }
+
         const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
         if (updateResult.affectedRows === 0) {
           return res.status(400).json({ success: false, error: 'Insufficient credits for extracting scenes' });
@@ -41,7 +70,7 @@ export default async function handler(req, res) {
         req.emailForRefund = email;
         req.creditsAmountToRefund = CREDITS_PER_TEXT;
       } else {
-        await query('INSERT INTO user_credits (email, credits) VALUES (?, 29)', [email]);
+        await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, 29)', [email, password]);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']
@@ -152,20 +181,15 @@ Format:
       throw new Error('No content returned from AI model');
     }
 
-    // Clean JSON
-    let cleanedContent = content.trim();
-    if (cleanedContent.startsWith('```')) {
-      cleanedContent = cleanedContent.replace(/^```[a-zA-Z]*\n/, '');
-      cleanedContent = cleanedContent.replace(/\n```$/, '');
-      cleanedContent = cleanedContent.trim();
-    }
-
     let scenes = [];
     try {
+      const cleanedContent = extractJsonArray(content);
       scenes = JSON.parse(cleanedContent);
     } catch (parseErr) {
       console.error('[Extract Scenes] Failed to parse JSON. Content:', content);
-      throw new Error('AI returned invalid format. Please try again.');
+      const formatError = new Error('分镜解析失败：模型返回格式不是有效 JSON，请稍后重试或缩短文案。');
+      formatError.statusCode = 502;
+      throw formatError;
     }
 
     // Limit to user defined exact scenes if AI generates too many
