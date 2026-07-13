@@ -3,6 +3,7 @@ import https from 'https';
 import { query } from '../../../lib/db';
 import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
 import { generateText } from '../../../lib/text_model_provider';
+import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
 
 export const config = {
   api: {
@@ -91,13 +92,13 @@ export default async function handler(req, res) {
         return res.status(401).json({ success: false, error: '登录状态已过期，请重新输入邮箱和密码。' });
       }
 
-      const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT password_hash, credits FROM tbn_user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
-        if (userRows[0].password !== password) {
+        if (!verifyPassword(password, userRows[0].password_hash)) {
           return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
         }
 
-        const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
+        const updateResult = await query('UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
         if (updateResult.affectedRows === 0) {
           return res.status(400).json({ success: false, error: 'Insufficient credits for extracting scenes' });
         }
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
         req.emailForRefund = email;
         req.creditsAmountToRefund = CREDITS_PER_TEXT;
       } else {
-        await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, 29)', [email, password]);
+        await createTbnUser(email, password, 29);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']
@@ -243,7 +244,7 @@ Format:
     if (email) {
       try {
         await query(
-          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM tbn_user_credits WHERE email = ?), ?)',
           [email, 'consume', -CREDITS_PER_TEXT, email, 'Extract scenes']
         );
       } catch (dbErr) {
@@ -259,7 +260,7 @@ Format:
     if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
       console.log(`[Extract Scenes] Refunding ${req.creditsAmountToRefund} credits to ${req.emailForRefund} due to error`);
       try {
-        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+        await query('UPDATE tbn_user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
       } catch (refundErr) {
         console.error('[Extract Scenes] Failed to refund credits:', refundErr.message);
       }

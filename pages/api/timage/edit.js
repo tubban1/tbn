@@ -7,6 +7,7 @@ import {
   calculateCreditsForSize
 } from '../../../lib/image-agent-helpers';
 import { ensureImageTaskSchema } from '../../../lib/image_task_schema';
+import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
 
 export const config = {
   api: {
@@ -64,14 +65,14 @@ export default async function handler(req, res) {
         return res.status(401).json({ success: false, error: '登录状态已过期，请重新输入邮箱和密码。' });
       }
 
-      const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT password_hash, credits FROM tbn_user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
-        if (userRows[0].password !== password) {
+        if (!verifyPassword(password, userRows[0].password_hash)) {
           return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
         }
 
         // Pre-deduct atomically
-        const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_IMAGE, email, CREDITS_PER_IMAGE]);
+        const updateResult = await query('UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_IMAGE, email, CREDITS_PER_IMAGE]);
         if (updateResult.affectedRows === 0) {
           return res.status(400).json({ success: false, error: 'Insufficient credits', credits: userRows[0].credits });
         }
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
       } else {
         // New user: grant 30 free credits, pre-deduct 5 = 25
         console.log(`[TImage] Creating user with 30 free credits for ${email}`);
-        await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, 25)', [email, password]);
+        await createTbnUser(email, password, 25);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
     if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
       console.log(`[TImage Edit] Refunding ${req.creditsAmountToRefund} credits to ${req.emailForRefund} due to error`);
       try {
-        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+        await query('UPDATE tbn_user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
       } catch (refundErr) {
         console.error('[TImage Edit] Failed to refund credits:', refundErr.message);
       }

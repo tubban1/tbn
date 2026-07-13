@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { query } from '../../../lib/db';
 import { ensureCreditsTables } from '../../../lib/image-agent-helpers';
+import { verifyPassword } from '../../../lib/tbn_user';
 
 export const config = {
   api: {
@@ -75,18 +76,18 @@ export default async function handler(req, res) {
   let creditsDeducted = false;
 
   try {
-    const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ? LIMIT 1', [email]);
+    const userRows = await query('SELECT password_hash, credits FROM tbn_user_credits WHERE email = ? LIMIT 1', [email]);
     if (!userRows || userRows.length === 0) {
       return res.status(400).json({ success: false, error: '用户不存在，请先登录注册' });
     }
 
-    if (userRows[0].password !== password) {
+    if (!verifyPassword(password, userRows[0].password_hash)) {
       return res.status(401).json({ success: false, error: '账号验证失败，请重新登录' });
     }
 
     const currentCredits = Number(userRows[0].credits || 0);
     const updateResult = await query(
-      'UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?',
+      'UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?',
       [VIDEO_CREDITS, email, VIDEO_CREDITS]
     );
 
@@ -131,7 +132,7 @@ export default async function handler(req, res) {
       }
     );
 
-    const balanceRows = await query('SELECT credits FROM user_credits WHERE email = ? LIMIT 1', [email]);
+    const balanceRows = await query('SELECT credits FROM tbn_user_credits WHERE email = ? LIMIT 1', [email]);
     const balanceAfter = Number(balanceRows?.[0]?.credits ?? currentCredits - VIDEO_CREDITS);
 
     await query(
@@ -149,7 +150,7 @@ export default async function handler(req, res) {
   } catch (error) {
     if (creditsDeducted) {
       try {
-        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [VIDEO_CREDITS, email]);
+        await query('UPDATE tbn_user_credits SET credits = credits + ? WHERE email = ?', [VIDEO_CREDITS, email]);
       } catch (refundError) {
         console.error('[TVideo] Failed to refund credits:', refundError.message);
       }

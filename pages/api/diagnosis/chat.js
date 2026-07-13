@@ -3,6 +3,7 @@ import { extractDiagnosisProfile, extractDiagnosisProfileLocally } from '../../.
 import { formatErrorForLog } from '../../../lib/safe_error';
 import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 import { extractStreamTextFromJson, streamText } from '../../../lib/text_model_provider';
+import { validateTbnUser } from '../../../lib/tbn_user';
 
 function runAfterResponse(res, task) {
   res.on('finish', () => {
@@ -79,11 +80,8 @@ export default async function handler(req, res) {
 
   try {
     // 1. 获取当前会话状态，判断是否存在
-    const users = await query(
-      `SELECT email FROM user_credits WHERE email = ? AND password = ? LIMIT 1`,
-      [email, password]
-    );
-    if (users.length === 0) {
+    const user = await validateTbnUser(email, password);
+    if (!user) {
       res.write("登录状态无效，请重新登录。");
       return res.end();
     }

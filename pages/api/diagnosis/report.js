@@ -2,6 +2,7 @@ import { query } from '../../../lib/db';
 import { formatErrorForLog } from '../../../lib/safe_error';
 import { ensureDiagnosisRuntimeSchema } from '../../../lib/diagnosis_schema';
 import { generateText } from '../../../lib/text_model_provider';
+import { validateTbnUser } from '../../../lib/tbn_user';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,11 +19,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const users = await query(
-      `SELECT email FROM user_credits WHERE email = ? AND password = ? LIMIT 1`,
-      [email, password]
-    );
-    if (users.length === 0) {
+    const user = await validateTbnUser(email, password);
+    if (!user) {
       return res.status(401).json({ error: '登录状态无效，请重新登录' });
     }
 

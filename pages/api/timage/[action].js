@@ -11,6 +11,7 @@ import {
   calculateCreditsForSize
 } from '../../../lib/image-agent-helpers';
 import { generateText } from '../../../lib/text_model_provider';
+import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
 
 export const config = {
   api: {
@@ -41,9 +42,9 @@ export default async function handler(req, res) {
       let currentCredits = 0;
       let isNewUser = false;
 
-      const userRows = await query('SELECT password, credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT password_hash, credits FROM tbn_user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
-        if (userRows[0].password !== password) {
+        if (!verifyPassword(password, userRows[0].password_hash)) {
           return res.status(401).json({ success: false, error: '密码错误，请重试！' });
         }
         currentCredits = userRows[0].credits;
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
       } else {
         // New user: grant 30 free credits
         console.log(`[TImage Pre-check] Creating user with 30 free credits for ${email}`);
-        await query('INSERT INTO user_credits (email, password, credits) VALUES (?, ?, 30)', [email, password]);
+        await createTbnUser(email, password, 30);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']
@@ -89,7 +90,7 @@ export default async function handler(req, res) {
       await ensureCreditsTables();
 
       const CREDITS_PER_IMAGE = 8;
-      const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT credits FROM tbn_user_credits WHERE email = ?', [email]);
       if (!userRows || userRows.length === 0 || userRows[0].credits < CREDITS_PER_IMAGE) {
         return res.status(400).json({ success: false, error: 'Insufficient credits' });
       }
@@ -98,7 +99,7 @@ export default async function handler(req, res) {
       const finalCredits = currentCredits - CREDITS_PER_IMAGE;
 
       // 1. Deduct credits
-      await query('UPDATE user_credits SET credits = ? WHERE email = ?', [finalCredits, email]);
+      await query('UPDATE tbn_user_credits SET credits = ? WHERE email = ?', [finalCredits, email]);
       await query(
         'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
         [email, 'consume', -CREDITS_PER_IMAGE, finalCredits, style === 'edit' ? 'Image editing' : 'Image generation']
@@ -127,9 +128,9 @@ export default async function handler(req, res) {
       let currentCredits = 0;
 
       if (email) {
-        const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+        const userRows = await query('SELECT credits FROM tbn_user_credits WHERE email = ?', [email]);
         if (userRows && userRows.length > 0) {
-          const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
+          const updateResult = await query('UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_TEXT, email, CREDITS_PER_TEXT]);
           if (updateResult.affectedRows === 0) {
             return res.status(400).json({ success: false, error: 'Insufficient credits for optimization', credits: userRows[0].credits });
           }
@@ -139,15 +140,7 @@ export default async function handler(req, res) {
           req.emailForRefund = email;
           req.creditsAmountToRefund = CREDITS_PER_TEXT;
         } else {
-          await query('INSERT INTO user_credits (email, credits) VALUES (?, 29)', [email]);
-          await query(
-            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
-            [email, 'gift', 30, 30, 'New user welcome bonus']
-          );
-          currentCredits = 29;
-          req.creditsPreDeducted = true;
-          req.emailForRefund = email;
-          req.creditsAmountToRefund = CREDITS_PER_TEXT;
+          return res.status(401).json({ success: false, error: '请先登录后再使用智能优化。' });
         }
       }
 
@@ -220,7 +213,7 @@ export default async function handler(req, res) {
       if (email) {
         try {
           await query(
-            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM tbn_user_credits WHERE email = ?), ?)',
             [email, 'consume', -CREDITS_PER_TEXT, email, 'Prompt optimization']
           );
         } catch (dbErr) {
@@ -247,10 +240,10 @@ export default async function handler(req, res) {
       let currentCredits = 0;
 
       if (email) {
-        const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+        const userRows = await query('SELECT credits FROM tbn_user_credits WHERE email = ?', [email]);
         if (userRows && userRows.length > 0) {
           // Pre-deduct atomically
-          const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_IMAGE, email, CREDITS_PER_IMAGE]);
+          const updateResult = await query('UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_IMAGE, email, CREDITS_PER_IMAGE]);
           if (updateResult.affectedRows === 0) {
             return res.status(400).json({ success: false, error: 'Insufficient credits', credits: userRows[0].credits });
           }
@@ -261,19 +254,7 @@ export default async function handler(req, res) {
           req.emailForRefund = email;
           req.creditsAmountToRefund = CREDITS_PER_IMAGE;
         } else {
-          // New user: grant 30 free credits, pre-deduct 5 = 25
-          console.log(`[TImage] Creating user with 30 free credits for ${email}`);
-          await query('INSERT INTO user_credits (email, credits) VALUES (?, 25)', [email]);
-          await query(
-            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
-            [email, 'gift', 30, 30, 'New user welcome bonus']
-          );
-          currentCredits = 25;
-
-          // Mark for refund in case of error
-          req.creditsPreDeducted = true;
-          req.emailForRefund = email;
-          req.creditsAmountToRefund = CREDITS_PER_IMAGE;
+          return res.status(401).json({ success: false, error: '请先登录后再生成图片。' });
         }
       }
 
@@ -381,7 +362,7 @@ export default async function handler(req, res) {
       if (email) {
         try {
           await query(
-            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+            'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM tbn_user_credits WHERE email = ?), ?)',
             [email, 'consume', -CREDITS_PER_IMAGE, email, 'Image generation']
           );
           console.log(`[TImage] Transaction logged for ${CREDITS_PER_IMAGE} credits generation. Remaining roughly: ${finalCredits}`);
@@ -450,7 +431,7 @@ export default async function handler(req, res) {
     if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
       console.log(`[TImage API] Refunding ${req.creditsAmountToRefund} credits to ${req.emailForRefund} due to error`);
       try {
-        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+        await query('UPDATE tbn_user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
       } catch (refundErr) {
         console.error('[TImage API] Failed to refund credits:', refundErr.message);
       }

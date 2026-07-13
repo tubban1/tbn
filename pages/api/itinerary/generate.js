@@ -38,9 +38,9 @@ export default async function handler(req, res) {
     // Optionally handle credits (deduct 1 credit for an itinerary)
     const CREDITS_PER_ITINERARY = 1;
     if (email) {
-      const userRows = await query('SELECT credits FROM user_credits WHERE email = ?', [email]);
+      const userRows = await query('SELECT credits FROM tbn_user_credits WHERE email = ?', [email]);
       if (userRows && userRows.length > 0) {
-        const updateResult = await query('UPDATE user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_ITINERARY, email, CREDITS_PER_ITINERARY]);
+        const updateResult = await query('UPDATE tbn_user_credits SET credits = credits - ? WHERE email = ? AND credits >= ?', [CREDITS_PER_ITINERARY, email, CREDITS_PER_ITINERARY]);
         if (updateResult.affectedRows === 0) {
           return res.status(400).json({ success: false, error: 'Insufficient credits for generating itinerary' });
         }
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     if (email) {
       try {
         await query(
-          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM user_credits WHERE email = ?), ?)',
+          'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, (SELECT credits FROM tbn_user_credits WHERE email = ?), ?)',
           [email, 'consume', -CREDITS_PER_ITINERARY, email, 'Generate itinerary']
         );
       } catch (dbErr) {
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
   } catch (error) {
     if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {
       try {
-        await query('UPDATE user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
+        await query('UPDATE tbn_user_credits SET credits = credits + ? WHERE email = ?', [req.creditsAmountToRefund, req.emailForRefund]);
       } catch (refundErr) {
         console.error('[Generate Itinerary] Failed to refund credits:', refundErr.message);
       }

@@ -1,4 +1,5 @@
 import { query } from '../../../lib/db';
+import { verifyPassword } from '../../../lib/tbn_user';
 
 function parseJson(value, fallback = null) {
   if (!value) return fallback;
@@ -29,8 +30,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const userRows = await query('SELECT password FROM user_credits WHERE email = ? LIMIT 1', [email]);
-    if (!userRows || userRows.length === 0 || userRows[0].password !== password) {
+    const userRows = await query('SELECT password_hash FROM tbn_user_credits WHERE email = ? LIMIT 1', [email]);
+    if (!userRows || userRows.length === 0 || !verifyPassword(password, userRows[0].password_hash)) {
       return res.status(401).json({ success: false, error: '账号密码不匹配，请重新登录。' });
     }
 

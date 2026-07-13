@@ -378,7 +378,7 @@ async function saveCompletedTask(task, payload, imageResult) {
 
   await pool.query(
     `INSERT INTO credit_transactions (email, type, amount, balance_after, description)
-     VALUES ($1, $2, $3, (SELECT credits FROM user_credits WHERE email = $1), $4)`,
+     VALUES ($1, $2, $3, (SELECT credits FROM tbn_user_credits WHERE email = $1), $4)`,
     [task.email, 'consume', -Number(task.credits_cost || 0), isEditTask ? 'Image editing' : 'Image generation']
   );
 
@@ -402,7 +402,7 @@ async function failTask(task, error) {
   }
   console.error(`[Render Image Worker] Task ${task.id} failed:`, message);
 
-  await pool.query('UPDATE user_credits SET credits = credits + $1 WHERE email = $2', [
+  await pool.query('UPDATE tbn_user_credits SET credits = credits + $1 WHERE email = $2', [
     Number(task.credits_cost || 0),
     task.email
   ]);
