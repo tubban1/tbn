@@ -2,9 +2,11 @@ import multer from 'multer';
 import axios from 'axios';
 import crypto from 'crypto';
 import { query } from '../../../lib/db';
-import { 
-  ensureCreditsTables, 
-  calculateCreditsForSize
+import {
+  ensureCreditsTables,
+  calculateCreditsForSize,
+  getImageModelConfig,
+  PREMIUM_CREDITS_PER_IMAGE
 } from '../../../lib/image-agent-helpers';
 import { ensureImageTaskSchema } from '../../../lib/image_task_schema';
 import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
@@ -44,7 +46,7 @@ export default async function handler(req, res) {
     await runMiddleware(req, res, upload.array('image', 6));
 
     const files = req.files;
-    const { prompt, prompt_en, prompt_zh, description, size, n = '1', email, password } = req.body;
+    const { prompt, prompt_en, prompt_zh, description, size, n = '1', email, password, model: reqModel } = req.body;
 
     if (!files || files.length === 0) {
       return res.status(400).json({ success: false, error: 'At least one image file is required' });
@@ -57,7 +59,8 @@ export default async function handler(req, res) {
     await ensureCreditsTables();
     await ensureImageTaskSchema();
 
-    const CREDITS_PER_IMAGE = calculateCreditsForSize(size);
+    const modelConfig = getImageModelConfig(reqModel || 'standard');
+    const CREDITS_PER_IMAGE = modelConfig.isPremium ? PREMIUM_CREDITS_PER_IMAGE : calculateCreditsForSize(size);
     let currentCredits = 0;
 
     if (email) {
@@ -107,6 +110,7 @@ export default async function handler(req, res) {
       description: description || null,
       size: size || null,
       n,
+      model: reqModel || 'standard',
       images: files.map((file, index) => ({
         base64: file.buffer.toString('base64'),
         filename: file.originalname || `image_${index}.png`,

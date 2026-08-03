@@ -140,6 +140,8 @@ export default function TImage() {
   const [emailStatus, setEmailStatus] = useState('none'); // none | verified
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('standard'); // 'standard' | 'image2'
+  const [availableModels, setAvailableModels] = useState([{ id: 'standard', label: '标准绘图', creditsHint: '8-25 积分/张' }]);
 
   // History gallery states
   const [historyList, setHistoryList] = useState([]);
@@ -190,6 +192,9 @@ export default function TImage() {
       if (response.data?.success) {
         setEmailStatus('verified');
         setCredits(response.data.credits);
+        if (response.data.availableModels) {
+          setAvailableModels(response.data.availableModels);
+        }
         localStorage.setItem('timage_email', emailToVerify);
         localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
@@ -472,7 +477,8 @@ export default function TImage() {
       quality,
       format,
       email,
-      password
+      password,
+      model: selectedModel
     });
 
     if (!taskRes.data?.success || !taskRes.data?.taskId) {
@@ -502,8 +508,8 @@ export default function TImage() {
     // Determine if batch mode is active
     const isBatchMode = selectedOptimizedIndexes.length > 1;
 
-    let creditsPerImage = 8;
-    if (size) {
+    let creditsPerImage = selectedModel === 'image2' ? 20 : 8;
+    if (selectedModel !== 'image2' && size) {
       const [w, h] = size.split('x').map(Number);
       if (w && h) {
         const pixels = w * h;
@@ -573,6 +579,7 @@ export default function TImage() {
               formData.append('size', size);
               formData.append('email', email);
               formData.append('password', password);
+              formData.append('model', selectedModel);
               uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
                 formData.append('image', img.file);
               });
@@ -680,6 +687,7 @@ export default function TImage() {
           formData.append('size', size);
           formData.append('email', email);
           formData.append('password', password);
+          formData.append('model', selectedModel);
           uploadedImages.filter(img => img.file?.type?.startsWith('image/')).forEach(img => {
             formData.append('image', img.file);
           });
@@ -1077,6 +1085,20 @@ export default function TImage() {
                 </div>
               </div>
 
+              {/* Model Selection */}
+              {availableModels.length > 1 && (
+                <div className="extra-settings" style={{ marginTop: '0.5rem' }}>
+                  <div className="setting-control">
+                    <label>🎨 绘图模型</label>
+                    <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="setting-select">
+                      {availableModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.label}（{m.creditsHint}）</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {/* Action Button */}
               <button
                 onClick={handleGenerate}
@@ -1085,8 +1107,8 @@ export default function TImage() {
               >
                 {(() => {
                   if (isProcessing) return '⏳ 正在调遣 AI 绘画引擎同时进行多维度渲染，约需 5-10 秒...';
-                  let creditsPerImage = 8;
-                  if (size) {
+                  let creditsPerImage = selectedModel === 'image2' ? 20 : 8;
+                  if (selectedModel !== 'image2' && size) {
                     const [w, h] = size.split('x').map(Number);
                     if (w && h) {
                       const pixels = w * h;

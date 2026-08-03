@@ -59,6 +59,8 @@ export default function MultiImage() {
   const [emailStatus, setEmailStatus] = useState('none');
   const [credits, setCredits] = useState(0);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('standard');
+  const [availableModels, setAvailableModels] = useState([{ id: 'standard', label: '标准绘图', creditsHint: '8-25 积分/张' }]);
   const [historyList, setHistoryList] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -90,6 +92,9 @@ export default function MultiImage() {
       if (response.data?.success) {
         setEmailStatus('verified');
         setCredits(response.data.credits);
+        if (response.data.availableModels) {
+          setAvailableModels(response.data.availableModels);
+        }
         localStorage.setItem('timage_email', emailToVerify);
         localStorage.setItem('timage_password', passwordToVerify);
         localStorage.setItem('timage_verified', 'true');
@@ -370,7 +375,8 @@ export default function MultiImage() {
       description: scene.description,
       size: unifiedSize,
       email,
-      password
+      password,
+      model: selectedModel
     });
 
     if (!taskRes.data?.success || !taskRes.data?.taskId) {
@@ -391,8 +397,8 @@ export default function MultiImage() {
       return;
     }
 
-    let creditsPerImage = 8;
-    if (unifiedSize) {
+    let creditsPerImage = selectedModel === 'image2' ? 20 : 8;
+    if (selectedModel !== 'image2' && unifiedSize) {
       const [w, h] = unifiedSize.split('x').map(Number);
       if (w && h) {
         const pixels = w * h;
@@ -687,6 +693,17 @@ export default function MultiImage() {
                   <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768)</option>
                 </select>
               </div>
+
+              {availableModels.length > 1 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>🎨 绘图模型：</label>
+                  <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="style-select">
+                    {availableModels.map(m => (
+                      <option key={m.id} value={m.id}>{m.label}（{m.creditsHint}）</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -723,6 +740,17 @@ export default function MultiImage() {
                   <option value="1024x768">4:3 书籍配图 / 行程细节图 (1024x768)</option>
                 </select>
               </div>
+
+              {availableModels.length > 1 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e1', fontSize: '0.9rem' }}>🎨 绘图模型：</label>
+                  <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="style-select">
+                    {availableModels.map(m => (
+                      <option key={m.id} value={m.id}>{m.label}（{m.creditsHint}）</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -750,8 +778,8 @@ export default function MultiImage() {
             <button onClick={handleGenerateAll} disabled={isGenerating} className="btn-generate">
               {(() => {
                 if (isGenerating) return '🌌 正在并行渲染所有分镜...';
-                let creditsPerImage = 8;
-                if (unifiedSize) {
+                let creditsPerImage = selectedModel === 'image2' ? 20 : 8;
+                if (selectedModel !== 'image2' && unifiedSize) {
                   const [w, h] = unifiedSize.split('x').map(Number);
                   if (w && h) {
                     const pixels = w * h;

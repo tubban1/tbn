@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { query } from '../../../lib/db';
-import { calculateCreditsForSize, ensureCreditsTables } from '../../../lib/image-agent-helpers';
+import { calculateCreditsForSize, ensureCreditsTables, getImageModelConfig, PREMIUM_CREDITS_PER_IMAGE } from '../../../lib/image-agent-helpers';
 import { ensureImageTaskSchema } from '../../../lib/image_task_schema';
 import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
 
@@ -19,7 +19,8 @@ export default async function handler(req, res) {
     quality,
     format = 'jpeg',
     email,
-    password
+    password,
+    model: reqModel
   } = req.body || {};
 
   if (!email || !password) {
@@ -34,7 +35,8 @@ export default async function handler(req, res) {
     await ensureCreditsTables();
     await ensureImageTaskSchema();
 
-    const creditsCost = calculateCreditsForSize(size);
+    const modelConfig = getImageModelConfig(reqModel || 'standard');
+    const creditsCost = modelConfig.isPremium ? PREMIUM_CREDITS_PER_IMAGE : calculateCreditsForSize(size);
     let currentCredits = 0;
 
     const userRows = await query('SELECT password_hash, credits FROM tbn_user_credits WHERE email = ?', [email]);
@@ -77,7 +79,8 @@ export default async function handler(req, res) {
       description: description || null,
       size: size || null,
       quality: quality || null,
-      format
+      format,
+      model: reqModel || 'standard'
     };
 
     await query(

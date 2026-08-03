@@ -8,7 +8,10 @@ import {
   saveDrawImagePair,
   processAndUploadImageUrl,
   uploadToFreeimageHost,
-  calculateCreditsForSize
+  calculateCreditsForSize,
+  getImageModelConfig,
+  getAvailableModels,
+  PREMIUM_CREDITS_PER_IMAGE
 } from '../../../lib/image-agent-helpers';
 import { generateText } from '../../../lib/text_model_provider';
 import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
@@ -66,6 +69,7 @@ export default async function handler(req, res) {
       const apiKey = process.env.VECTORENGINE_API_KEY;
       const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
       const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+      const availableModels = getAvailableModels();
 
       if (!apiKey) {
         return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
@@ -77,7 +81,8 @@ export default async function handler(req, res) {
         apiBase,
         model,
         credits: currentCredits,
-        isNewUser
+        isNewUser,
+        availableModels
       });
     }
 
@@ -228,7 +233,7 @@ export default async function handler(req, res) {
     }
 
     else if (action === 'generate') {
-      const { prompt, prompt_en, prompt_zh, description, size, quality, format = 'jpeg', email } = req.body;
+      const { prompt, prompt_en, prompt_zh, description, size, quality, format = 'jpeg', email, model: reqModel } = req.body;
 
       if (!prompt) {
         return res.status(400).json({ success: false, error: 'Prompt is required' });
@@ -236,7 +241,8 @@ export default async function handler(req, res) {
 
       await ensureCreditsTables();
 
-      const CREDITS_PER_IMAGE = calculateCreditsForSize(size);
+      const modelConfig = getImageModelConfig(reqModel || 'standard');
+      const CREDITS_PER_IMAGE = modelConfig.isPremium ? PREMIUM_CREDITS_PER_IMAGE : calculateCreditsForSize(size);
       let currentCredits = 0;
 
       if (email) {
@@ -258,12 +264,12 @@ export default async function handler(req, res) {
         }
       }
 
-      const apiKey = process.env.VECTORENGINE_API_KEY;
-      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-      const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+      const apiKey = modelConfig.apiKey;
+      const apiBase = modelConfig.apiBase;
+      const model = modelConfig.model;
 
       if (!apiKey) {
-        return res.status(500).json({ success: false, error: 'VECTORENGINE_API_KEY is not configured in .env' });
+        return res.status(500).json({ success: false, error: 'Image generation API key is not configured' });
       }
 
       console.log('[TImage] Initiating image generation request to VectorEngine:', {
