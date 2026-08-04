@@ -51,9 +51,6 @@ export default async function handler(req, res) {
           return res.status(401).json({ success: false, error: '密码错误，请重试！' });
         }
         currentCredits = userRows[0].credits;
-        if (currentCredits < CREDITS_PER_IMAGE) {
-          return res.status(400).json({ success: false, error: 'Insufficient credits', credits: currentCredits });
-        }
       } else {
         // New user: grant 30 free credits
         console.log(`[TImage Pre-check] Creating user with 30 free credits for ${email}`);
@@ -81,6 +78,8 @@ export default async function handler(req, res) {
         apiBase,
         model,
         credits: currentCredits,
+        hasEnoughCredits: currentCredits >= CREDITS_PER_IMAGE,
+        minimumCredits: CREDITS_PER_IMAGE,
         isNewUser,
         availableModels
       });
