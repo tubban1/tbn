@@ -49,6 +49,7 @@ pool.on('error', (error) => {
 });
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const PREMIUM_CREDITS_PER_IMAGE = 20;
 
 function sanitizeFilename(filename) {
   return (filename || 'image.png')
@@ -64,6 +65,30 @@ function hasAliyunConfig() {
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET &&
     process.env.ALIYUN_OSS_BUCKET
   );
+}
+
+function getImageModelConfig(model) {
+  if (model === 'image2') {
+    const apiKey = process.env.IMAGE2_KEY;
+    if (!apiKey) {
+      throw new Error('IMAGE2_KEY is not configured');
+    }
+    return {
+      apiBase: process.env.IMAGE2_API_BASE || process.env.IAMGE2_API_BASE || process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1',
+      apiKey,
+      model: process.env.IMAGE2_MODEL || 'gpt-image-2-c',
+      isPremium: true,
+      creditsPerImage: PREMIUM_CREDITS_PER_IMAGE
+    };
+  }
+
+  return {
+    apiBase: process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1',
+    apiKey: process.env.VECTORENGINE_API_KEY,
+    model: process.env.IMAGE_MODEL || 'gpt-image-2',
+    isPremium: false,
+    creditsPerImage: null
+  };
 }
 
 async function ensureSchema() {
@@ -216,13 +241,14 @@ async function processAndUploadImageUrl(url, filename) {
 }
 
 async function generateImage(payload) {
-  const apiKey = process.env.VECTORENGINE_API_KEY;
+  const modelConfig = getImageModelConfig(payload.model || 'standard');
+  const apiKey = modelConfig.apiKey;
   if (!apiKey) {
     throw new Error('VECTORENGINE_API_KEY is not configured');
   }
 
-  const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-  const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+  const apiBase = modelConfig.apiBase;
+  const model = modelConfig.model;
   const format = payload.format || 'jpeg';
   const requestPayload = {
     model,
@@ -237,6 +263,7 @@ async function generateImage(payload) {
   const modelTimeout = parseInt(process.env.IMAGE_WORKER_MODEL_TIMEOUT || '900000', 10);
   console.log('[Render Image Worker] Calling VectorEngine image model:', {
     model,
+    modelSlot: payload.model || 'standard',
     size: payload.size || 'omitted',
     timeoutMs: modelTimeout
   });
@@ -273,7 +300,8 @@ async function generateImage(payload) {
 }
 
 async function editImage(payload) {
-  const apiKey = process.env.VECTORENGINE_API_KEY;
+  const modelConfig = getImageModelConfig(payload.model || 'standard');
+  const apiKey = modelConfig.apiKey;
   if (!apiKey) {
     throw new Error('VECTORENGINE_API_KEY is not configured');
   }
@@ -282,8 +310,8 @@ async function editImage(payload) {
     throw new Error('No input images provided for edit task');
   }
 
-  const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-  const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+  const apiBase = modelConfig.apiBase;
+  const model = modelConfig.model;
   const formData = new FormData();
   formData.append('model', model);
   formData.append('prompt', payload.prompt);
@@ -300,6 +328,7 @@ async function editImage(payload) {
   const modelTimeout = parseInt(process.env.IMAGE_WORKER_MODEL_TIMEOUT || '900000', 10);
   console.log('[Render Image Worker] Calling VectorEngine edit model:', {
     model,
+    modelSlot: payload.model || 'standard',
     filesCount: payload.images.length,
     size: payload.size || 'omitted',
     timeoutMs: modelTimeout
