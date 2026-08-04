@@ -3,6 +3,7 @@ import axios from 'axios';
 import { query } from '../../../lib/db';
 import { calculateCreditsForSize, ensureCreditsTables, getImageModelConfig, PREMIUM_CREDITS_PER_IMAGE } from '../../../lib/image-agent-helpers';
 import { ensureImageTaskSchema } from '../../../lib/image_task_schema';
+import { processImageTaskNow } from '../../../lib/image_task_processor';
 import { createTbnUser, verifyPassword } from '../../../lib/tbn_user';
 
 export default async function handler(req, res) {
@@ -90,11 +91,15 @@ export default async function handler(req, res) {
       [taskId, email, 'text-to-image', 'pending', JSON.stringify(requestPayload), creditsCost]
     );
 
-    const wakeUrl = process.env.IMAGE_WORKER_WAKE_URL || process.env.RENDER_WORKER_URL;
-    if (wakeUrl) {
-      axios.get(wakeUrl, { timeout: 2000 }).catch((wakeError) => {
-        console.warn('[TImage Create Task] Worker wake ping failed:', wakeError.message);
-      });
+    if (process.env.IMAGE_TASK_PROCESSING_MODE === 'worker') {
+      const wakeUrl = process.env.IMAGE_WORKER_WAKE_URL || process.env.RENDER_WORKER_URL;
+      if (wakeUrl) {
+        axios.get(wakeUrl, { timeout: 2000 }).catch((wakeError) => {
+          console.warn('[TImage Create Task] Worker wake ping failed:', wakeError.message);
+        });
+      }
+    } else {
+      await processImageTaskNow(taskId);
     }
 
     return res.json({
