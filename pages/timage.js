@@ -112,7 +112,7 @@ export default function TImage() {
   const [prompt, setPrompt] = useState('');
   const [size, setSize] = useState('1024x1792');
   const [quality, setQuality] = useState('standard');
-  const [format, setFormat] = useState('jpeg');
+  const format = 'jpeg';
 
   // Image Uploads (Image-to-Image / AI旅拍)
   const [uploadedImages, setUploadedImages] = useState([]); // Array of { file, preview }
@@ -1076,13 +1076,6 @@ export default function TImage() {
                   </select>
                 </div>
 
-                <div className="setting-control">
-                  <label>🔥 输出格式</label>
-                  <select value={format} onChange={(e) => setFormat(e.target.value)} className="setting-select">
-                    <option value="jpeg">高质量 JPEG (推荐)</option>
-                    <option value="png">无损 PNG</option>
-                  </select>
-                </div>
               </div>
 
               {/* Model Selection */}
