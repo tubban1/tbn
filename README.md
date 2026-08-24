@@ -1,80 +1,119 @@
-# wish2
+<div align="center">
 
-wish2 is a modern, theme-rich web platform for creating, editing, and sharing personalized blessing (wish) pages. Built with Next.js and React, it features dynamic page routing, multi-theme support, admin management, and AI-powered content generation.
-
----
-
-## Features
-
-- **Personalized Wish Pages**: Create and share unique blessing pages with custom content and styles.
-- **Dynamic Routing**: Each wish page is accessible via a unique URL (e.g., `/w/[uid]` for viewing, `/e/[uid]` for editing).
-- **Multi-theme Support**: Choose from a variety of visual themes (Dreamy Sky, Matrix, Paper Letter, etc.), each with its own CSS and optional special effects.
-- **Admin Dashboard**: Batch create, manage, and monitor wish pages with authentication.
-- **AI-Powered Content Generation**: Generate wish content using an integrated AI API (supports Qwen3-8B model via a secure proxy).
-- **Comment System**: Users can leave comments on wish pages.
-- **Page View Tracking**: Track and analyze page visits.
-- **MySQL Database**: All data is stored and managed via a MySQL backend.
-
----
-
-## Directory Structure
-
-```
-<code_block_to_apply_from>
+```text
+ ████████╗██████╗ ███╗   ██╗
+ ╚══██╔══╝██╔══██╗████╗  ██║
+    ██║   ██████╔╝██╔██╗ ██║
+    ██║   ██╔══██╗██║╚██╗██║
+    ██║   ██████╔╝██║ ╚████║
+    ╚═╝   ╚═════╝ ╚═╝  ╚═══╝
 ```
 
----
+# TBN (Wish2) — AI-Powered Personalized Wish Generation & Interactive Platform
 
-## AI Generation
+**Theme-Rich Blessing Page Platform Built with Next.js, Qwen3-8B LLM, & Supabase/MySQL**
 
-**Highlight:**  
-wish2 integrates an AI-powered content generation feature. Users can request the system to generate creative blessing messages using a large language model (Qwen3-8B) via a secure backend proxy. This ensures API key safety and enables high-quality, context-aware wish content for every occasion.
-
-- API endpoint: `/api/ai_generate`
-- Model: Qwen3-8B (via Infini-AI cloud)
-- Usage: Accessible from the wish edit page and admin dashboard for batch or single wish generation.
+[ 🇺🇸 **English** ](./README.md) • [ 🇨🇳 **中文文档** ](./README_CN.md)
 
 ---
 
-## Quick Start
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=mit)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-12%2B-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-17.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Qwen AI](https://img.shields.io/badge/AI%20Engine-Qwen3--8B-412991?style=for-the-badge&logo=openai&logoColor=white)](https://huggingface.co/Qwen)
+[![Database](https://img.shields.io/badge/Database-Supabase%20%7C%20MySQL-00C7B7?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=github-actions)](https://github.com/tubban1/tbn)
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-2. **Configure environment variables:**
-   - Set your MySQL connection and AI API key in `.env.local`
-3. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
-4. **Access the app:**
-   - Home: `http://localhost:3000/`
-   - Admin: `http://localhost:3000/admin` (default password: `biel2025`)
+</div>
 
 ---
 
-## Main Scripts
+## 💡 What is TBN (Wish2)?
 
-- `npm run dev` – Start development server
-- `npm run build` – Build for production
-- `npm run start` – Start production server
+**TBN (Wish2)** is a modern, theme-rich web platform for creating, editing, and sharing personalized blessing (wish) pages. Powered by **Next.js** and **Qwen3-8B LLM**, it features dynamic page routing, multi-theme visual effects, admin batch management, and AI content generation.
 
 ---
 
-## Documentation
+## ⚡ Key Features
 
-- `doc/Product.md` – Product features and requirements
-- `doc/DataStructure.md` – Database schema and data flow
-- `doc/FileStructure.md` – File and directory overview
+<table width="100%">
+<tr>
+<td width="50%" valign="top">
+
+### 🎨 1. Multi-Theme Visual Engine
+* **Rich Theme Library**: Dreamy Sky, Matrix Rain, Vintage Letter, and custom particle effects.
+* **Interactive FX**: Specialized CSS/Three.js visual animations per theme.
+
+</td>
+<td width="50%" valign="top">
+
+### 🤖 2. Qwen3-8B AI Generation
+* **Secure API Gateway (`/api/ai_generate`)**: Backend API key protection.
+* **Batch Creation**: One-click generation of personalized blessing content for batch events.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🔗 3. Dynamic Routing & Sharing
+* **Lifecycle Routing**: Dedicated `/w/[uid]` (view) and `/e/[uid]` (edit) routes.
+* **Analytics & Comments**: Real-time page view tracking and interactive comment feeds.
+
+</td>
+<td width="50%" valign="top">
+
+### 💾 4. Dual Persistence Architecture
+* **Supabase & MySQL**: Seamless data migration between local MySQL and cloud Supabase.
+* **Render Worker**: Background image generation worker for exporting wish cards.
+
+</td>
+</tr>
+</table>
 
 ---
 
-## License
+## 🛠️ Architecture & Workflow
 
-MIT
+```mermaid
+graph TD
+    A[👤 User / Admin Prompt] -->|POST /api/ai_generate| B(🤖 Qwen3-8B AI Synthesizer)
+    B -->|Generate Blessing Content| C(🎨 Dynamic Visual Engine)
+    C -->|Select Theme & Particles| D(🔗 Generate Dedicated UID Route /w/UID)
+    D -->|Persistence| E[(🗄️ Supabase / MySQL)]
+    E -->|Analytics & Comments| F[📱 Responsive Mobile / Desktop Share Page]
+```
 
 ---
 
-**Note:**  
-For best results, use the admin dashboard to batch-create wish pages and leverage the AI generation feature to quickly populate creative, personalized content for users. Each wish page can be customized with different themes and shared via unique links.
+## 📁 Directory Structure
+
+```
+wish2/
+├── pages/               # Application routes (/w/[uid], /e/[uid], /admin)
+├── components/          # Theme components & visual effects
+├── lib/                 # AI proxy & database connectors
+├── scripts/             # Migration scripts & render worker
+└── doc/                 # Product specifications & database schemas
+```
+
+---
+
+## ⚡ Quick Start
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment in .env.local
+# Set MYSQL_HOST, MYSQL_DATABASE, AI_API_KEY
+
+# 3. Run development server
+npm run dev
+```
+
+---
+
+## 🤝 License
+
+Released under the **MIT License**.
