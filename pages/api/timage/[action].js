@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       }
 
       const apiKey = process.env.VECTORENGINE_API_KEY;
-      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
+      const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.frimodel.com/v1';
       const model = process.env.IMAGE_MODEL || 'gpt-image-2';
       const availableModels = getAvailableModels();
 
@@ -128,7 +128,7 @@ export default async function handler(req, res) {
 
       await ensureCreditsTables();
 
-      const CREDITS_PER_TEXT = 1;
+      const CREDITS_PER_TEXT = 3;
       let currentCredits = 0;
 
       if (email) {
@@ -227,7 +227,8 @@ export default async function handler(req, res) {
 
       return res.json({
         success: true,
-        optimizedPrompts
+        optimizedPrompts,
+        credits: currentCredits
       });
     }
 

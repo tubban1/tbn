@@ -85,7 +85,8 @@ export default async function handler(req, res) {
   try {
     await ensureCreditsTables();
 
-    const CREDITS_PER_TEXT = 1;
+    const CREDITS_PER_TEXT = 3;
+    let currentCredits = null;
 
     if (email) {
       if (!password) {
@@ -102,16 +103,18 @@ export default async function handler(req, res) {
         if (updateResult.affectedRows === 0) {
           return res.status(400).json({ success: false, error: 'Insufficient credits for extracting scenes' });
         }
+        currentCredits = userRows[0].credits - CREDITS_PER_TEXT;
         
         req.creditsPreDeducted = true;
         req.emailForRefund = email;
         req.creditsAmountToRefund = CREDITS_PER_TEXT;
       } else {
-        await createTbnUser(email, password, 29);
+        await createTbnUser(email, password, 27);
         await query(
           'INSERT INTO credit_transactions (email, type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
           [email, 'gift', 30, 30, 'New user welcome bonus']
         );
+        currentCredits = 27;
         req.creditsPreDeducted = true;
         req.emailForRefund = email;
         req.creditsAmountToRefund = CREDITS_PER_TEXT;
@@ -192,8 +195,8 @@ Format:
         });
       } else {
         const apiKey = process.env.VECTORENGINE_GEMINI_KEY || process.env.VECTORENGINE_API_KEY;
-        const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1';
-        const promptModel = process.env.PROMPT_MODEL || 'gpt-4o-mini';
+        const apiBase = process.env.VECTORENGINE_API_BASE || 'https://api.frimodel.com/v1';
+        const promptModel = process.env.PROMPT_MODEL || 'gemini-3.8-flash';
         if (!apiKey) {
           throw new Error('VECTORENGINE_GEMINI_KEY or VECTORENGINE_API_KEY is not configured for multimodal scene extraction');
         }
@@ -254,7 +257,8 @@ Format:
 
     return res.json({
       success: true,
-      scenes
+      scenes,
+      credits: currentCredits
     });
   } catch (error) {
     if (req.creditsPreDeducted && req.emailForRefund && req.creditsAmountToRefund) {

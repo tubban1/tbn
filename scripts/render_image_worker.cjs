@@ -74,7 +74,7 @@ function getImageModelConfig(model) {
       throw new Error('IMAGE2_KEY is not configured');
     }
     return {
-      apiBase: process.env.IMAGE2_API_BASE || process.env.IAMGE2_API_BASE || process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1',
+      apiBase: process.env.IMAGE2_API_BASE || process.env.IAMGE2_API_BASE || process.env.VECTORENGINE_API_BASE || 'https://api.frimodel.com/v1',
       apiKey,
       model: process.env.IMAGE2_MODEL || 'gpt-image-2-c',
       isPremium: true,
@@ -83,7 +83,7 @@ function getImageModelConfig(model) {
   }
 
   return {
-    apiBase: process.env.VECTORENGINE_API_BASE || 'https://api.vectorengine.cn/v1',
+    apiBase: process.env.VECTORENGINE_API_BASE || 'https://api.frimodel.com/v1',
     apiKey: process.env.VECTORENGINE_API_KEY,
     model: process.env.IMAGE_MODEL || 'gpt-image-2',
     isPremium: false,

@@ -305,8 +305,8 @@ export default function MultiImage() {
       setErrorMessage('登录状态已过期，请重新输入邮箱和密码。');
       return;
     }
-    if (credits < 1) {
-      setErrorMessage('额度不足！智能提取分镜需要 1 额度。请点击右上角“充值请联系”扫码充值！');
+    if (credits < 3) {
+      setErrorMessage('额度不足！智能提取分镜需要 3 额度。请点击右上角“充值请联系”扫码充值！');
       return;
     }
 
@@ -336,6 +336,9 @@ export default function MultiImage() {
       const response = await axios.post('/api/timage/extract-scenes', payload);
       if (response.data?.success) {
         setScenes(response.data.scenes);
+        if (typeof response.data.credits === 'number') {
+          setCredits(response.data.credits);
+        }
         setInfoMessage(`成功解析出 ${response.data.scenes.length} 个分镜画面！`);
       } else {
         setErrorMessage(response.data?.error || '解析失败');
